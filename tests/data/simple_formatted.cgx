@@ -1,0 +1,11 @@
+<template>
+  <item />
+</template>
+
+<script>
+from collagraph import Component
+
+
+class Simple(Component):
+    pass
+</script>

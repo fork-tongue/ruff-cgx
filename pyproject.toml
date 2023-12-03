@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "ruff-cgx"
+version = "0.1.0"
+description = "Ruff flinter and formatter for collagraph single-file components"
+authors = ["Berend Klein Haneveld <berendkleinhaneveld@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "ruff_cgx"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+collagraph = ">=0.6.0"
+ruff = "^0.1.6"
+
+[tool.poetry.scripts]
+ruff-cgx = "ruff_cgx:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

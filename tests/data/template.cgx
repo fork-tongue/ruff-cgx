@@ -1,0 +1,46 @@
+<template>
+	<item multple="1" attributes="2" />
+	<item @single="'attr'"></item>
+	<blaat
+	@example="hai" :attr="10"
+	   blaat="True"
+	attribute />
+	<nested>
+		<attrs
+			key3="fda"
+			key0="blasd"
+			key2="asdf"
+		  :key1="'asdf'" />
+
+			<!-- A comment here -->
+<subitem>     </subitem>
+<!--
+
+	multiline comment
+weird
+		indents
+
+-->
+   <subitem   id="2" />
+
+
+   <!-- <another />
+   	multiline
+comment
+   -->
+ </nested><!-- same line -->
+ <item something @action="callback" v-if="condition" :attr="'val'" />
+ <toet
+ 	v-else>
+ 	<!-- Some comment here -->
+ </toet>
+ <item> 	With text content <!--toet --> bloeb</item>
+</template>
+
+<script>
+from collagraph import Component
+
+
+class Simple(Component):
+    pass
+</script>

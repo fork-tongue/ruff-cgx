@@ -1,0 +1,16 @@
+# Python
+__pycache__
+*.egg-info/
+dist
+build
+.venv
+.pytest_cache
+.coverage
+
+# Editors
+*.sublime-project
+*.sublime-workspace
+.vscode
+
+# OS
+.DS_Store
