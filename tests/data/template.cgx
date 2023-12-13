@@ -38,9 +38,16 @@ comment
 </template>
 
 <script>
-from collagraph import Component
 
 
-class Simple(Component):
+from    collagraph   import   Component
+
+
+
+
+class   Simple   (  Component  )  :
+
+
+
     pass
 </script>
