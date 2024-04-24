@@ -9,8 +9,8 @@ packages = [{include = "ruff_cgx"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-collagraph = ">=0.6.0"
-ruff = "^0.1.6"
+collagraph = ">=0.7.0"
+ruff = "*"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
@@ -27,6 +27,10 @@ select = [
     "T10", # flake8-debugger
     "T20", # flake8-print
     "RUF", # ruff
+]
+unfixable = [
+    "F401",  # Unused import
+    "F841",  # Unused variable
 ]
 
 [tool.poetry.scripts]

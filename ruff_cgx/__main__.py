@@ -1,11 +1,6 @@
 from pathlib import Path
 
-from ruff_cgx import format_file
-
-
-def lint_file(path, fix=False):
-    print("Lint", path, f"{fix:}")
-    return 0
+from ruff_cgx import format_file, lint_file
 
 
 def main(argv=None):

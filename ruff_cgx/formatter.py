@@ -1,21 +1,24 @@
 import logging
+import os
 import subprocess
 import tempfile
 from pathlib import Path
 
 from collagraph.cgx import cgx
 
-from template import format_template
+from .template_formatter import format_template
 
 logger = logging.getLogger(__name__)
 
 
-def format_script(script_node, source_lines, check):
+def format_script(path, script_node, source_lines, check):
     start, end = script_node.location[0], script_node.end[0] - 1
 
     source = "".join(source_lines[start:end])
 
     ruff_command = ["ruff", "format"]
+    if check:
+        ruff_command.append("--check")
 
     # Write source to a temp file
     with tempfile.TemporaryDirectory() as directory:
@@ -23,10 +26,21 @@ def format_script(script_node, source_lines, check):
         target_file.write_text(source)
         ruff_command.append(str(target_file))
 
+        # Enable color output for ruff
+        # TODO: check whether we want to force color or not?
+        env = os.environ.copy()
+        env["CLICOLOR_FORCE"] = "1"
         # Then run ruff to format the temp file
-        subprocess.run(ruff_command)
+        output = subprocess.run(ruff_command, capture_output=True, text=True, env=env)
         with target_file.open(mode="r", encoding="utf-8") as fh:
             formatted_source = fh.readlines()
+
+        stdout = output.stdout.replace(str(target_file), str(path))
+
+    print(stdout, end="")  # noqa: T201
+    if check:
+        if output.returncode:
+            exit(output.returncode)
 
     # Then return the contents
     return formatted_source, (start, end)
@@ -54,7 +68,7 @@ def format_file(path, check=False, write=True):
     script_node = parser.root.child_with_tag("script")
     template_node = parser.root.child_with_tag("template")
 
-    script_content, script_location = format_script(script_node, lines, check)
+    script_content, script_location = format_script(path, script_node, lines, check)
     template_content, template_location = format_template(
         template_node, lines, parser=parser
     )

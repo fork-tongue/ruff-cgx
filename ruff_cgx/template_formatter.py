@@ -1,38 +1,5 @@
 from collagraph.cgx import cgx
 
-
-# The following definitions are needed to monkey-patch the CGXParser
-# When https://github.com/fork-tongue/collagraph/pull/115 is merged (and released)
-# this monkey-patch can be removed
-class TextElement:
-    def __init__(self, content, location=None):
-        self.content = content
-
-
-class Comment:
-    def __init__(self, content, location=None):
-        self.content = content
-
-
-def handle_data(self, data):
-    if data.strip():
-        # Add item as child to the last on the stack
-        self.stack[-1].children.append(
-            TextElement(content=data, location=self.getpos())
-        )
-
-
-def handle_comment(self, comment):
-    if comment.strip():
-        # Add item as child to the last on the stack
-        self.stack[-1].children.append(Comment(content=comment, location=self.getpos()))
-
-
-# Monkey-patch the CGXParser to also handle comments
-cgx.CGXParser.handle_comment = handle_comment
-cgx.CGXParser.handle_data = handle_data
-
-
 INDENT = "  "
 SORTING = [
     # DEFINITION
@@ -114,11 +81,15 @@ def format_node(node, depth, parser):
     result = []
     indent = depth * INDENT
 
-    if not isinstance(node, (TextElement, Comment)):
+    if isinstance(node, cgx.Comment):
+        result.append(f"{indent}<!--{node.content}-->")
+    elif isinstance(node, cgx.TextElement):
+        result.append(f"{indent}{node.content.strip()}")
+    else:
         start = f"{indent}<{node.tag}"
         if node.attrs:
             if len(node.attrs) == 1:
-                key, val = list(node.attrs.items())[0]
+                key, val = next(iter(node.attrs.items()))
                 attr = format_attribute(key, val)
                 start = f"{start} {attr}"
             else:
@@ -127,7 +98,7 @@ def format_node(node, depth, parser):
                     attr = format_attribute(key, node.attrs[key])
                     attrs.append(f"{indent}{INDENT}{attr}")
 
-                start = "\n".join([start] + attrs)
+                start = "\n".join([start, *attrs])
 
         if not node.children:
             if not node.attrs or len(node.attrs) <= 1:
@@ -141,10 +112,6 @@ def format_node(node, depth, parser):
                 start = f"{start}\n{depth * INDENT}>"
 
         result.append(start)
-    elif isinstance(node, Comment):
-        result.append(f"{indent}<!--{node.content}-->")
-    elif isinstance(node, TextElement):
-        result.append(f"{indent}{node.content.strip()}")
 
     if hasattr(node, "children"):
         for child in node.children:

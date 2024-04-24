@@ -1,4 +1,5 @@
 <template>
+	  <root>
 	<item multple="1" attributes="2" />
 	<item @single="'attr'"></item>
 	<blaat
@@ -35,6 +36,7 @@ comment
  	<!-- Some comment here -->
  </toet>
  <item> 	With text content <!--toet --> bloeb</item>
+    </root>
 </template>
 
 <script>

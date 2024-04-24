@@ -1,0 +1,95 @@
+<template>
+  <widget>
+    <!-- v-bind props -->
+    <label
+      v-bind:text="props['text']"
+    />
+    <!-- v-bind state + shortcut -->
+    <label
+      :text="state['other_text']"
+    />
+    <!-- v-bind state + component method -->
+    <label
+      :text="counter_format()"
+    />
+    <!-- v-bind state + component attribute -->
+    <label
+      :text="title"
+    />
+    <!-- v-bind context -->
+    <label
+      v-bind:text="cg.__version__"
+    />
+    <!-- v-if -->
+    <label
+      v-if="state['counter'] == 0"
+      text="if"
+    />
+    <!-- v-else-if -->
+    <label
+      v-else-if="state['counter'] == 1"
+      text="else-if"
+    />
+    <!-- v-else-if -->
+    <label
+      v-else-if="state['counter'] == 2"
+      text="second else-if"
+    />
+    <!-- v-else -->
+    <label
+      v-else
+      text="else"
+    />
+    <!-- v-for enumeration-->
+    <label
+      v-for="animal in state['animals']"
+      v-bind:text="animal"
+    />
+    <!-- v-for enumeration-->
+    <label
+      v-for="idx, animal in enumerate(state['animals'])"
+      v-bind:key="idx"
+      v-bind:text="animal"
+    />
+    <widget :layout="{'type': 'box', 'direction': QBoxLayout.Direction.LeftToRight}">
+      <!-- v-on -->
+      <button
+        v-on:clicked="bump"
+        text="Bump"
+      />
+      <!-- v-on shortcut -->
+      <button
+        @clicked="add"
+        text="Add"
+      />
+    </widget>
+  </widget>
+</template>
+
+
+<script lang="python">
+import collagraph as cg
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QBoxLayout
+
+
+class Directives(cg.Component):
+    def __init__(self, props):
+        super().__init__(props)
+        self.state["other_text"] = "Other"
+        self.state["counter"] = 0
+        self.state["animals"] = []
+        self.title = "Title"
+
+    def bump(self):
+        self.state["counter"] += 1
+
+    def add(self):
+        for x in ["Aardvark", "Addax", "Adelie Penguin", "African Buffalo"]:
+            if x not in self.state["animals"]:
+                self.state["animals"].append(x)
+                break
+
+    def counter_format(self):
+        return f"Counter: {self.state['counter']}"
+</script>
