@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "ruff-cgx"
 version = "0.1.0"
-description = "Ruff flinter and formatter for collagraph single-file components"
+description = "Ruff linter and formatter for collagraph single-file components"
 authors = ["Berend Klein Haneveld <berendkleinhaneveld@gmail.com>"]
 license = "MIT"
 readme = "README.md"

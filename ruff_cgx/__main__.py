@@ -13,14 +13,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Lint and format cgx files with ruff")
     subcommand = parser.add_subparsers(dest="command")
 
-    lint_parser = subcommand.add_parser("lint")
+    lint_parser = subcommand.add_parser("check")
     lint_parser.add_argument("--fix", action="store_true")
     lint_parser.add_argument(
         "path",
         nargs="*",
         type=Path,
         # default=[Path(".")],
-        help="path(s) of files and/or folders to lint",
+        help="path(s) of files and/or folders to check",
     )
 
     format_parser = subcommand.add_parser("format")
@@ -36,7 +36,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     method = {
         "format": format_file,
-        "lint": lint_file,
+        "check": lint_file,
     }[args.command]
 
     method_arguments = {

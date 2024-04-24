@@ -3,11 +3,11 @@ import pytest
 from ruff_cgx.__main__ import main
 
 
-def test_plugin(capsys, data_path):
+def test_check_command(capsys, data_path):
     simple_cgx = data_path / "lint.cgx"
 
     with pytest.raises(SystemExit) as e:
-        main(["lint", str(simple_cgx)])
+        main(["check", str(simple_cgx)])
 
     captured = capsys.readouterr()
 
