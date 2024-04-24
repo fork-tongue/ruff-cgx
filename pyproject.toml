@@ -34,7 +34,7 @@ unfixable = [
 ]
 
 [tool.poetry.scripts]
-ruff-cgx = "ruff_cgx/__main__:main"
+ruff-cgx = "ruff_cgx.__main__:main"
 
 [build-system]
 requires = ["poetry-core"]
