@@ -6,6 +6,7 @@ build
 .venv
 .pytest_cache
 .coverage
+uv.lock
 
 # Editors
 *.sublime-project

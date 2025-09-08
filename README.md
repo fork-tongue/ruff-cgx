@@ -10,18 +10,18 @@ Lint and format CGX files (collagraph single-file components) with ruff.
 ## Usage
 
 ```sh
-# Install in your environment (for example with poetry)
-poetry add -D ruff-cgx
+# Install in your environment (for example with uv)
+uv add --dev ruff-cgx
 # Show help for the tool
-poetry run ruff-cgx -h
+uv run ruff-cgx -h
 # Check/Lint every cgx file in current folder (recursively)
-poetry run ruff-cgx check .
+uv run ruff-cgx check .
 # Format every cgx file in the current folder (recursively)
-poetry run ruff-cgx format .
+uv run ruff-cgx format .
 # Just check if there would be any changes from the formatter
-poetry run ruff-cgx format --check .
+uv run ruff-cgx format --check .
 # Format just a single file
-poetry run ruff-cgx format my-component.cgx
+uv run ruff-cgx format my-component.cgx
 # Format a folder and file
-poetry run ruff-cgx format ../folder_with_cgx_files my-component.cgx
+uv run ruff-cgx format ../folder_with_cgx_files my-component.cgx
 ```

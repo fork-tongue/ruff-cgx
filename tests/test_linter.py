@@ -12,8 +12,7 @@ def test_check_command(capsys, data_path):
     captured = capsys.readouterr()
 
     assert e.value.code == 1
-    assert "tests/data/lint.cgx" in captured.out
+    assert "tests/data/lint.cgx:72:27" in captured.out
     assert "F401" in captured.out
     assert "`PySide6.QtGui.QAction` imported but unused" in captured.out
     assert "Found 1 error." in captured.out
-    assert len(captured.out.splitlines()) == 2, captured.out

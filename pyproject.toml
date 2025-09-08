@@ -1,20 +1,32 @@
-[tool.poetry]
+[project]
 name = "ruff-cgx"
 version = "0.1.0"
 description = "Ruff linter and formatter for collagraph single-file components"
-authors = ["Berend Klein Haneveld <berendkleinhaneveld@gmail.com>"]
-license = "MIT"
 readme = "README.md"
-packages = [{include = "ruff_cgx"}]
+requires-python = ">=3.10"
+dependencies = [
+    "collagraph>=0.7.0",
+    "ruff"
+]
+authors = [
+    { name = "Berend Klein Haneveld", email = "berendkleinhaneveld@gmail.com" }
+]
+license = "MIT"
 
-[tool.poetry.dependencies]
-python = "^3.9"
-collagraph = ">=0.7.0"
-ruff = "*"
+[project.scripts]
+ruff-cgx = "ruff_cgx.__main__:main"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-twine = "*"
+[dependency-groups]
+dev = [
+    "pytest",
+    "twine"
+]
+ruff = [
+    "ruff"
+]
+
+[tool.uv]
+package = true
 
 [tool.ruff.lint]
 select = [
@@ -33,10 +45,3 @@ unfixable = [
     "F401",  # Unused import
     "F841",  # Unused variable
 ]
-
-[tool.poetry.scripts]
-ruff-cgx = "ruff_cgx.__main__:main"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
