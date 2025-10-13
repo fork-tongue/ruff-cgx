@@ -19,7 +19,6 @@ ruff-cgx = "ruff_cgx.__main__:main"
 [dependency-groups]
 dev = [
     "pytest",
-    "twine"
 ]
 ruff = [
     "ruff"
