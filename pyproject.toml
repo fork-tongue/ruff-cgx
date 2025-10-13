@@ -5,7 +5,7 @@ description = "Ruff linter and formatter for collagraph single-file components"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "collagraph>=0.7.0",
+    "collagraph>=0.8.0",
     "ruff"
 ]
 authors = [

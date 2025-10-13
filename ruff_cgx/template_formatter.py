@@ -1,4 +1,4 @@
-from collagraph.cgx import cgx
+from collagraph.sfc.parser import Comment, TextElement
 
 INDENT = "  "
 SORTING = [
@@ -81,9 +81,9 @@ def format_node(node, depth, parser):
     result = []
     indent = depth * INDENT
 
-    if isinstance(node, cgx.Comment):
+    if isinstance(node, Comment):
         result.append(f"{indent}<!--{node.content}-->")
-    elif isinstance(node, cgx.TextElement):
+    elif isinstance(node, TextElement):
         result.append(f"{indent}{node.content.strip()}")
     else:
         start = f"{indent}<{node.tag}"
