@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from collagraph.cgx import cgx
+from collagraph.sfc.parser import CGXParser
 
 from .template_formatter import format_template
 
@@ -59,7 +59,7 @@ def format_file(path, check=False, write=True):
     if path.suffix != ".cgx":
         return
 
-    parser = cgx.CGXParser()
+    parser = CGXParser()
     parser.feed(path.read_text())
 
     with path.open(mode="r") as fh:

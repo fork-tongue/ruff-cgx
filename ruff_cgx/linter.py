@@ -7,7 +7,8 @@ import textwrap
 import tokenize
 from pathlib import Path
 
-from collagraph.cgx import cgx
+from collagraph.sfc.compiler import construct_ast
+from collagraph.sfc.parser import CGXParser
 
 
 def escape_ansi(line):
@@ -17,7 +18,7 @@ def escape_ansi(line):
 
 def lint_file(path, fix=False, write=True):
     # plain_result = ast.unparse(tree)
-    parser = cgx.CGXParser()
+    parser = CGXParser()
     parser.feed(Path(path).read_text())
 
     # Read the data from script block
@@ -25,7 +26,7 @@ def lint_file(path, fix=False, write=True):
     start, end = script_node.location[0], script_node.end[0] - 1
     script_range = range(start, end)
 
-    tree, _ = cgx.construct_ast(path)
+    tree, _ = construct_ast(path)
 
     # The only thing that we can't check is: RUF100: whether
     # there are unneeded noqa statement. That's because we use
@@ -90,7 +91,7 @@ def lint_file(path, fix=False, write=True):
 def read_lines_from_filename_patched(path: Path) -> list[str]:
     """Read the lines for a file."""
     try:
-        parser = cgx.CGXParser()
+        parser = CGXParser()
         parser.feed(Path(path).read_text())
 
         # Read the data from script block
