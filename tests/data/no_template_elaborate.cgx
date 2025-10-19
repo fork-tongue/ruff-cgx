@@ -12,5 +12,7 @@ class Node(Component):
 
 
 <other-node>
+
+
 	<should-work-just-fine />
 		</other-node>
