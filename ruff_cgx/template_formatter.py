@@ -23,6 +23,9 @@ UNIQUE_ATTR = SORTING.index({"id", "ref", "key"})
 
 
 def format_template(template_node, lines, parser):
+    """
+    Returns formatted node and the original location of the template node
+    """
     # Find beginning and end of script block
     start, end = template_node.location[0] - 1, template_node.end[0]
 

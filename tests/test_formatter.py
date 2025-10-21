@@ -105,3 +105,70 @@ def test_format_template(capsys, data_path):
     stdout = capsys.readouterr().out
 
     assert "1 file reformatted" in stdout, stdout
+
+
+def test_works_with_no_template(capsys, data_path):
+    """
+    Also checks that a newline will be added at the end
+    of the file.
+    """
+    template_cgx = data_path / "no_template.cgx"
+
+    lines = format_file(template_cgx, write=False)
+
+    expected = textwrap.dedent(
+        """
+            <node />
+
+            <script>
+            from collagraph import Component
+
+
+            class Node(Component):
+                pass
+            </script>
+        """
+    ).lstrip()
+    assert "".join(lines) == expected
+
+    stdout = capsys.readouterr().out
+
+    assert "1 file reformatted" in stdout, stdout
+
+
+def test_works_with_no_template_elaborate(capsys, data_path):
+    """
+    Also checks that whitespace between root nodes is preserved.
+    """
+    template_cgx = data_path / "no_template_elaborate.cgx"
+
+    lines = format_file(template_cgx, write=False)
+
+    expected = textwrap.dedent(
+        """
+            <node />
+
+
+
+
+            <script>
+            from collagraph import Component
+
+
+            class Node(Component):
+                pass
+            </script>
+
+
+
+            <other-node>
+              <should-work-just-fine />
+            </other-node>
+
+        """
+    ).lstrip()
+    assert "".join(lines) == expected
+
+    stdout = capsys.readouterr().out
+
+    assert "1 file reformatted" in stdout, stdout

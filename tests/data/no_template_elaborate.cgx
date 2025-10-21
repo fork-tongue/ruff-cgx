@@ -1,0 +1,18 @@
+<node />
+
+
+
+
+<script>
+from collagraph import Component
+class Node(Component):
+	pass
+</script>
+
+
+
+<other-node>
+
+
+	<should-work-just-fine />
+		</other-node>
