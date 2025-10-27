@@ -1,7 +1,6 @@
 import ast
 import json
 import os
-import re
 import subprocess
 import tempfile
 import textwrap
@@ -28,13 +27,7 @@ class Diagnostic:
     source: str = "ruff"
 
 
-def escape_ansi(line):
-    ansi_escape = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
-    return ansi_escape.sub("", line)
-
-
 def lint_file(path, fix=False, write=True):
-    # plain_result = ast.unparse(tree)
     parser = CGXParser()
     parser.feed(Path(path).read_text())
 
@@ -153,7 +146,8 @@ class RuffLinter:
             )
             return result.returncode == 0
         except (subprocess.SubprocessError, FileNotFoundError):
-            return False
+            pass
+        return False
 
     def lint_cgx_file(
         self, content: str, file_path: str = "<stdin>"
@@ -161,7 +155,7 @@ class RuffLinter:
         """
         Lint a CGX file by extracting the script section and running ruff.
 
-        This follows the approach from ruff-cgx:
+        This follows a similar approach as the formatter:
         1. Parse the CGX file using Collagraph's parser
         2. Extract the script section with line numbers
         3. Comment out non-script lines to preserve line numbers
