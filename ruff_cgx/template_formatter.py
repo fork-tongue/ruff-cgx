@@ -1,4 +1,11 @@
+import logging
+import subprocess
+import tempfile
+from pathlib import Path
+
 from collagraph.sfc.parser import Comment, TextElement
+
+logger = logging.getLogger(__name__)
 
 INDENT = "  "
 SORTING = [
@@ -22,14 +29,64 @@ OTHER_ATTR = SORTING.index({"v-bind", ":"})
 UNIQUE_ATTR = SORTING.index({"id", "ref", "key"})
 
 
-def format_template(template_node, lines, parser):
+def format_python_expression(expr: str) -> str:
+    """
+    Format a Python expression using ruff with single quotes.
+
+    Args:
+        expr: The Python expression as a string
+
+    Returns:
+        Formatted expression as a string (using single quotes)
+    """
+    if not expr or not expr.strip():
+        return expr
+
+    try:
+        # Wrap the expression in a dummy assignment to make it valid Python
+        # This allows ruff to format it properly
+        wrapped = f"__dummy__ = {expr}"
+
+        with tempfile.TemporaryDirectory() as directory:
+            target_file = Path(directory) / "expr.py"
+            target_file.write_text(wrapped)
+
+            # Create a ruff.toml config file to use single quotes
+            config_file = Path(directory) / "ruff.toml"
+            config_file.write_text('[format]\nquote-style = "single"\n')
+
+            # Format with ruff using the config
+            result = subprocess.run(
+                ["ruff", "format", "--config", str(config_file), str(target_file)],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0:
+                formatted = target_file.read_text()
+                # Extract the expression back out
+                # (remove "__dummy__ = " and trailing newline)
+                prefix = "__dummy__ = "
+                if formatted.startswith(prefix):
+                    formatted_expr = formatted[len(prefix) :].rstrip("\n")
+                    return formatted_expr
+
+        # If formatting failed, return original
+        return expr
+
+    except Exception as e:
+        logger.debug(f"Could not format expression '{expr}': {e}")
+        return expr
+
+
+def format_template(template_node, lines):
     """
     Returns formatted node and the original location of the template node
     """
     # Find beginning and end of script block
     start, end = template_node.location[0] - 1, template_node.end[0]
 
-    result = format_node(template_node, depth=0, parser=parser)
+    result = format_node(template_node, depth=0)
     # Replace all tabs with the default indent and add line breaks
     tab = "\t"
     result = [f"{line.replace(tab, INDENT)}\n" for line in result]
@@ -74,13 +131,30 @@ def sort_attr(attr):
 
 
 def format_attribute(key, value):
+    """
+    Format an attribute key-value pair.
+
+    If the attribute is a binding (:attr) or event (@event) or directive (v-),
+    format the Python expression in the value.
+    """
+    # Handle boolean attributes (including v-else which is always boolean)
     if not key.startswith((":", "@")):
         if value is True:
             return key
+
+    # Format Python expressions in bindings, events, and directives
+    if key.startswith((":", "@", "v-")) and isinstance(value, str) and value.strip():
+        value = value.strip()
+        # For v-for, don't format as it has special syntax
+        # For v-slot, don't format as it has special syntax
+        if not key.startswith(("v-for", "v-slot", "#")):
+            formatted_value = format_python_expression(value)
+            return f'{key}="{formatted_value}"'
+
     return f'{key}="{value}"'
 
 
-def format_node(node, depth, parser):
+def format_node(node, depth):
     result = []
     indent = depth * INDENT
 
@@ -118,7 +192,7 @@ def format_node(node, depth, parser):
 
     if hasattr(node, "children"):
         for child in node.children:
-            result.extend(format_node(child, depth + 1, parser))
+            result.extend(format_node(child, depth + 1))
 
         if node.children:
             result.append(f"{indent}</{node.tag}>")
