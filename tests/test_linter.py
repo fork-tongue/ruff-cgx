@@ -154,8 +154,8 @@ def test_lint_unused_import():
 
 
         class Directives(cg.Component):
-            def __init__(self, props):
-                super().__init__(props)
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
                 self.state["other_text"] = "Other"
                 self.state["counter"] = 0
                 self.state["animals"] = []
