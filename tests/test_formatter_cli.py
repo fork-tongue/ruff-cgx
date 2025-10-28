@@ -51,7 +51,7 @@ def test_format_template(capsys, data_path):
                   blaat="True"
                   @example="hai"
                 />
-                <nested>
+                <nested #header>
                   <attrs
                     key0="blasd"
                     :key1="'asdf'"
@@ -83,7 +83,7 @@ def test_format_template(capsys, data_path):
                 <toet v-else>
                   <!-- Some comment here -->
                 </toet>
-                <item>
+                <item v-slot:footer>
                   With text content
                   <!--toet -->
                   bloeb

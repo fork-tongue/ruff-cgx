@@ -118,3 +118,7 @@ def test_format_attribute_with_expression():
     # v-if directive with expression
     result = format_attribute("v-if", "counter==0")
     assert result == 'v-if="counter == 0"'
+
+    # v-for directive with expression
+    result = format_attribute("v-for", " it  in  enumerate( items, start = 0 ) ")
+    assert result == 'v-for="it in enumerate(items, start=0)"'
