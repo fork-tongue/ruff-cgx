@@ -44,8 +44,7 @@ def test_lint_invalid_code():
 
 
         class Node(Component):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
+            def init(self):
                 self.message = undefined_variable
         </script>
         """.lstrip("\n")
@@ -60,7 +59,7 @@ def test_lint_invalid_code():
     assert "Undefined name `undefined_variable`" in diagnostic.message, (
         diagnostic.message
     )
-    assert diagnostic.line == 11
+    assert diagnostic.line == 10
     assert diagnostic.column == 23
 
 
@@ -154,8 +153,7 @@ def test_lint_unused_import():
 
 
         class Directives(cg.Component):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
+            def init(self):
                 self.state["other_text"] = "Other"
                 self.state["counter"] = 0
                 self.state["animals"] = []

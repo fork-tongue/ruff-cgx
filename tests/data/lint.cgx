@@ -74,8 +74,7 @@ from PySide6.QtWidgets import QBoxLayout
 
 
 class Directives(cg.Component):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def init(self):
         self.state["other_text"] = "Other"
         self.state["counter"] = 0
         self.state["animals"] = []
