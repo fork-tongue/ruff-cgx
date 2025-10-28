@@ -24,7 +24,7 @@ def lint_file(path, **_):
         Exit code (0 for success, non-zero for errors)
     """
     path = Path(path)
-    content = path.read_text()
+    content = path.read_text(encoding="utf-8")
 
     # Parse CGX file
     parsed = parse_cgx_file(content)

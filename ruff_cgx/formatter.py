@@ -43,7 +43,7 @@ def format_file(path, check=False, write=True):
     if path.suffix != ".cgx":
         return
 
-    content = path.read_text()
+    content = path.read_text(encoding="utf-8")
     parsed = parse_cgx_file(content)
 
     lines = content.splitlines(keepends=True)
@@ -94,7 +94,7 @@ def format_file(path, check=False, write=True):
         return lines
 
     if changed:
-        with path.open(mode="w") as fh:
+        with path.open(mode="w", encoding="utf-8") as fh:
             fh.writelines(lines)
 
     return 0

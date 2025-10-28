@@ -168,7 +168,7 @@ def run_ruff_format(
         result = subprocess.run(ruff_command, capture_output=True, text=True, env=env)
 
         if result.returncode == 0 or not check:
-            return target_file.read_text()
+            return target_file.read_text(encoding="utf-8")
         else:
             # If check mode and would change, return original
             return source
