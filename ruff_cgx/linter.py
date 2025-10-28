@@ -1,121 +1,168 @@
-import ast
-import os
-import re
-import subprocess
-import tempfile
-import textwrap
-import tokenize
+import json
+from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
-from collagraph.sfc.compiler import construct_ast
-from collagraph.sfc.parser import CGXParser
+from .utils import (
+    create_virtual_render_content,
+    get_script_range,
+    parse_cgx_file,
+    run_ruff_check,
+)
 
 
-def escape_ansi(line):
-    ansi_escape = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
-    return ansi_escape.sub("", line)
+def lint_file(path, **_):
+    """
+    Lint a CGX file using ruff (CLI version).
 
+    Args:
+        path: Path to the CGX file
+        fix: Whether to fix issues (not implemented)
+        write: Whether to write changes (not implemented)
 
-def lint_file(path, fix=False, write=True):
-    # plain_result = ast.unparse(tree)
-    parser = CGXParser()
-    parser.feed(Path(path).read_text())
+    Returns:
+        Exit code (0 for success, non-zero for errors)
+    """
+    path = Path(path)
+    content = path.read_text(encoding="utf-8")
 
-    # Read the data from script block
-    script_node = parser.root.child_with_tag("script")
-    start, end = script_node.location[0], script_node.end[0] - 1
+    # Parse CGX file
+    parsed = parse_cgx_file(content)
+    if not parsed.script_node:
+        return 1
+
+    # Get script range
+    start, end = get_script_range(parsed.script_node)
     script_range = range(start, end)
 
-    tree, _ = construct_ast(path)
-
-    # The only thing that we can't check is: RUF100: whether
-    # there are unneeded noqa statement. That's because we use
-    # these noqa statements to comment out the lines of the
-    # virtual render function
-    ruff_command = ["ruff", "check", "--ignore", "RUF100"]
-
-    with path.open(mode="r", encoding="utf-8") as fh:
-        source_raw = fh.readlines()
+    # Read source lines
+    lines = content.splitlines(keepends=True)
 
     # Comment out all non-script lines
     template_commented = [
-        line if idx in script_range else "#\n" for idx, line in enumerate(source_raw)
+        line if idx in script_range else "#\n" for idx, line in enumerate(lines)
     ]
 
-    component_class_def = next(
-        node for node in reversed(tree.body) if isinstance(node, ast.ClassDef)
-    )
-    component_class_name = component_class_def.name
-    render_method = next(
-        node
-        for node in component_class_def.body
-        if isinstance(node, ast.FunctionDef) and node.name == "render"
-    )
-    render_method = ast.unparse(render_method)
-    render_method = textwrap.indent(render_method, "    ")
+    # Create virtual content with render method
+    virtual_content = create_virtual_render_content(content, template_commented)
 
-    # Insert a line that mimics a subclass so that any code that follows the last
-    # class definition, won't break the virtual render method
-    template_commented.append(
-        f"class Virtual{component_class_name}({component_class_name}):\n"
-    )
-    # Append the virtual render method into the virtual subclass definition
-    template_commented.extend(
-        [f"{line}  # noqa\n" for line in render_method.split("\n")]
-    )
+    # Run ruff check with full output (for CLI)
+    result, temp_path = run_ruff_check(virtual_content, output_format="full")
 
-    with tempfile.TemporaryDirectory() as directory:
-        target_file = Path(directory) / "source.py"
-        target_file.write_text("".join(template_commented))
-
-        ruff_command.append(str(target_file))
-
-        # Force color
-        # TODO: figure out if we can detect if we can use color or not
-        env = os.environ.copy()
-        env["CLICOLOR_FORCE"] = "1"
-
-        result = subprocess.run(
-            ruff_command,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-
-    stdout = result.stdout.replace(str(target_file), str(path))
-    stdout.strip()
-    print(stdout, end="")  # noqa: T201
+    # Replace temp file path with actual path in output
+    stdout = result.stdout.replace(str(temp_path), str(path)).strip()
+    print(stdout)  # noqa: T201
     return result.returncode
 
 
-def read_lines_from_filename_patched(path: Path) -> list[str]:
-    """Read the lines for a file."""
+@dataclass
+class Diagnostic:
+    """Represents a diagnostic message (error, warning, etc.)."""
+
+    line: int
+    column: int
+    end_line: int
+    end_column: int
+    message: str
+    code: str
+    severity: str  # 'error', 'warning', 'info'
+    source: str = "ruff"
+
+
+def lint_cgx_content(content: str) -> List[Diagnostic]:
+    """
+    Lint CGX file content (for LSP use).
+
+    Args:
+        content: The CGX file content as a string
+        file_path: Optional file path for better error messages
+
+    Returns:
+        List of diagnostics
+    """
+    # Parse the CGX file using Collagraph's parser
+    parsed = parse_cgx_file(content)
+
+    # Check if there's a script section
+    if not parsed.script_node:
+        # No script section, nothing to lint
+        return []
+
+    # Get the line range of the script section
+    start_line, end_line = get_script_range(parsed.script_node)
+
+    # Create a modified version where non-script lines are commented out
+    source_lines = content.splitlines(keepends=True)
+
+    # Add newline to lines that don't have it (to make sure last line has it?)
+    source_lines = [
+        line if line.endswith("\n") else f"{line}\n" for line in source_lines
+    ]
+
+    script_range = range(start_line, end_line)
+
+    # Comment out all non-script lines to preserve line numbers
+    modified_lines = [
+        line if idx in script_range else "#\n" for idx, line in enumerate(source_lines)
+    ]
+
+    # Try to construct AST and append virtual render method
+    # This allows ruff to see template variable usage
+    virtual_content = create_virtual_render_content(content, modified_lines)
+
+    # Run ruff on the virtual file
+    diagnostics = _run_ruff(virtual_content)
+
+    return diagnostics
+
+
+def _run_ruff(python_content: str) -> List[Diagnostic]:
+    """
+    Run ruff on Python content and return diagnostics.
+
+    Args:
+        python_content: The Python code (with non-script lines commented)
+
+    Returns:
+        List of diagnostics
+    """
+    # Run ruff check with JSON output
+    result, _ = run_ruff_check(python_content, output_format="json")
+    if not result.stdout:
+        return []
+
     try:
-        parser = CGXParser()
-        parser.feed(Path(path).read_text())
+        ruff_diagnostics = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return []
 
-        # Read the data from script block
-        script_node = parser.root.child_with_tag("script")
-        start, end = script_node.location[0], script_node.end[0] - 1
+    # Convert ruff diagnostics to our format
+    diagnostics = []
+    for diag in ruff_diagnostics:
+        # Ruff returns 1-indexed line numbers
+        line = diag.get("location", {}).get("row", 1) - 1  # Convert to 0-indexed
+        column = diag.get("location", {}).get("column", 1) - 1  # Convert to 0-indexed
+        end_line = diag.get("end_location", {}).get("row", line + 1) - 1
+        end_column = diag.get("end_location", {}).get("column", column + 1) - 1
 
-        with tokenize.open(path) as fh:
-            result = fh.readlines()
+        # Determine severity based on ruff's message type
+        severity = "warning"
+        code = diag.get("code", "unknown")
+        if code.startswith("E"):
+            severity = "error"
+        elif code.startswith("F"):
+            severity = "error"
 
-            actual_result = result[start:end]
-            # Prepend some empty (commented) lines to make the errors
-            # point out the right location in the cgx file
-            actual_result = [
-                # prepend with some empty lines
-                *(start * ["# noqa\n"]),
-                *actual_result,
-                # append some more empty lines
-                *(9 * ["# noqa\n"]),
-            ]
+        diagnostics.append(
+            Diagnostic(
+                line=line,
+                column=column,
+                end_line=end_line,
+                end_column=end_column,
+                message=diag.get("message", "Unknown error"),
+                code=code,
+                severity=severity,
+            )
+        )
 
-            return actual_result
-
-    except (SyntaxError, UnicodeError):
-        # If we can't detect the codec with tokenize.detect_encoding, or
-        # the detected encoding is incorrect, just fallback to latin-1.
-        with open(path, encoding="latin-1") as fd:
-            return fd.readlines()
+    return diagnostics

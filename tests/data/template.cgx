@@ -6,7 +6,7 @@
 	@example="hai" :attr="10"
 	   blaat="True"
 	attribute />
-	<nested>
+	<nested  #header  >
 		<attrs
 			key3="fda"
 			key0="blasd"
@@ -35,7 +35,7 @@ comment
  	v-else>
  	<!-- Some comment here -->
  </toet>
- <item> 	With text content <!--toet --> bloeb</item>
+ <item  v-slot:footer > 	With text content <!--toet --> bloeb</item>
     </root>
 </template>
 

@@ -1,6 +1,6 @@
 [project]
 name = "ruff-cgx"
-version = "0.1.2"
+version = "0.1.3"
 description = "Ruff linter and formatter for collagraph single-file components"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,6 +39,7 @@ select = [
     "T10", # flake8-debugger
     "T20", # flake8-print
     "RUF", # ruff
+    "ARG", # flake8-unused-arguments
 ]
 unfixable = [
     "F401",  # Unused import
