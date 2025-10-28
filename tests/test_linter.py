@@ -1,27 +1,11 @@
-"""Tests for the RuffLinter API."""
+"""Tests for linting and diagnostics."""
 
 from textwrap import dedent
 
-import pytest
-
-from ruff_cgx import RuffLinter
+from ruff_cgx import lint_cgx_content
 
 
-@pytest.fixture
-def linter():
-    """Create a linter instance."""
-    return RuffLinter()
-
-
-def test_linter_initialization(linter):
-    """Test that the linter initializes correctly."""
-    assert linter is not None
-    # Note: ruff_available may be False if ruff isn't installed
-    if not linter.ruff_available:
-        pytest.xfail("Ruff should be available to run the test suite")
-
-
-def test_lint_valid_code(linter):
+def test_lint_valid_code():
     """Test linting valid Python code in a CGX file."""
     content = dedent(
         """
@@ -38,7 +22,7 @@ def test_lint_valid_code(linter):
         </script>
         """
     )
-    diagnostics = linter.lint_cgx_file(content)
+    diagnostics = lint_cgx_content(content)
 
     assert len(diagnostics) == 0
     # May have style warnings, but no syntax errors
@@ -47,7 +31,7 @@ def test_lint_valid_code(linter):
     ), diagnostics
 
 
-def test_lint_invalid_code(linter):
+def test_lint_invalid_code():
     """Test linting invalid Python code in a CGX file."""
     content = dedent(
         """
@@ -66,10 +50,10 @@ def test_lint_invalid_code(linter):
         </script>
         """.lstrip("\n")
     )
-    diagnostics = linter.lint_cgx_file(content)
+    diagnostics = lint_cgx_content(content)
 
-    # Should have 2 syntax error diagnostics:
-    # 2. Expected an expression (incomplete statement)
+    # Should have 1 syntax error diagnostics:
+    # Undefined variable
     assert len(diagnostics) == 1
     diagnostic = diagnostics[0]
     assert diagnostic.code == "F821", diagnostic.code
@@ -80,15 +64,15 @@ def test_lint_invalid_code(linter):
     assert diagnostic.column == 23
 
 
-def test_lint_empty_file(linter):
+def test_lint_empty_file():
     """Test linting an empty CGX file."""
-    diagnostics = linter.lint_cgx_file("")
+    diagnostics = lint_cgx_content("")
 
     # Should return empty list or just ruff availability warning
     assert isinstance(diagnostics, list)
 
 
-def test_lint_unused_import(linter):
+def test_lint_unused_import():
     content = dedent(
         """
         <template>
@@ -192,7 +176,7 @@ def test_lint_unused_import(linter):
         """
     )
 
-    diagnostics = linter.lint_cgx_file(content)
+    diagnostics = lint_cgx_content(content)
 
     # Should find 1 unused imports: QAction
     # Should not find error about QBoxLayout since it is used in the template

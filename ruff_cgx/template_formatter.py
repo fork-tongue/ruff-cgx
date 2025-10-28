@@ -1,9 +1,8 @@
 import logging
-import subprocess
-import tempfile
-from pathlib import Path
 
 from collagraph.sfc.parser import Comment, TextElement
+
+from .utils import run_ruff_format
 
 logger = logging.getLogger(__name__)
 
@@ -47,29 +46,15 @@ def format_python_expression(expr: str) -> str:
         # This allows ruff to format it properly
         wrapped = f"__dummy__ = {expr}"
 
-        with tempfile.TemporaryDirectory() as directory:
-            target_file = Path(directory) / "expr.py"
-            target_file.write_text(wrapped)
+        # Format with ruff using single quotes
+        formatted = run_ruff_format(wrapped, use_single_quotes=True)
 
-            # Create a ruff.toml config file to use single quotes
-            config_file = Path(directory) / "ruff.toml"
-            config_file.write_text('[format]\nquote-style = "single"\n')
-
-            # Format with ruff using the config
-            result = subprocess.run(
-                ["ruff", "format", "--config", str(config_file), str(target_file)],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.returncode == 0:
-                formatted = target_file.read_text()
-                # Extract the expression back out
-                # (remove "__dummy__ = " and trailing newline)
-                prefix = "__dummy__ = "
-                if formatted.startswith(prefix):
-                    formatted_expr = formatted[len(prefix) :].rstrip("\n")
-                    return formatted_expr
+        # Extract the expression back out
+        # (remove "__dummy__ = " and trailing newline)
+        prefix = "__dummy__ = "
+        if formatted.startswith(prefix):
+            formatted_expr = formatted[len(prefix) :].rstrip("\n")
+            return formatted_expr
 
         # If formatting failed, return original
         return expr
@@ -79,7 +64,7 @@ def format_python_expression(expr: str) -> str:
         return expr
 
 
-def format_template(template_node, lines):
+def format_template(template_node):
     """
     Returns formatted node and the original location of the template node
     """

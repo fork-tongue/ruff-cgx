@@ -39,6 +39,7 @@ select = [
     "T10", # flake8-debugger
     "T20", # flake8-print
     "RUF", # ruff
+    "ARG", # flake8-unused-arguments
 ]
 unfixable = [
     "F401",  # Unused import
