@@ -25,3 +25,13 @@ uv run ruff-cgx format my-component.cgx
 # Format a folder and file
 uv run ruff-cgx format ../folder_with_cgx_files my-component.cgx
 ```
+
+## Configuration
+
+To use a specific ruff installation (e.g., in an LSP server):
+
+```python
+import ruff_cgx
+
+ruff_cgx.set_ruff_command("/path/to/custom/ruff")
+```

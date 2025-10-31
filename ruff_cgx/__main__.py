@@ -10,7 +10,10 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
 
-    parser = argparse.ArgumentParser(description="Lint and format cgx files with ruff")
+    parser = argparse.ArgumentParser(
+        description="Lint and format cgx files with ruff",
+        epilog="Environment: Set RUFF_COMMAND to use a custom ruff executable.",
+    )
     subcommand = parser.add_subparsers(dest="command")
 
     lint_parser = subcommand.add_parser("check")

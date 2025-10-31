@@ -13,6 +13,55 @@ from typing import List, Optional
 from collagraph.sfc.compiler import construct_ast
 from collagraph.sfc.parser import CGXParser, Element
 
+# Module-level configuration for ruff command
+_ruff_command: Optional[str] = None
+
+
+def set_ruff_command(command: str) -> None:
+    """
+    Set the ruff command to use programmatically.
+
+    This is the recommended way for LSP servers and other Python code
+    to configure the ruff executable.
+
+    Args:
+        command: Path or command name for ruff executable (e.g., "/usr/local/bin/ruff")
+
+    Example:
+        >>> import ruff_cgx
+        >>> ruff_cgx.set_ruff_command("/path/to/custom/ruff")
+        >>> ruff_cgx.format_file("file.cgx")
+    """
+    global _ruff_command
+    _ruff_command = command
+
+
+def get_ruff_command() -> str:
+    """
+    Get the ruff command to use.
+
+    Priority order:
+    1. Command set via set_ruff_command() (programmatic)
+    2. RUFF_COMMAND environment variable (for CLI use)
+    3. Default: "ruff"
+
+    Returns:
+        Path or command name for ruff executable
+    """
+    if _ruff_command is not None:
+        return _ruff_command
+    return os.environ.get("RUFF_COMMAND", "ruff")
+
+
+def reset_ruff_command() -> None:
+    """
+    Reset the ruff command to default (uses priority: env var, then "ruff").
+
+    Clears any command set via set_ruff_command().
+    """
+    global _ruff_command
+    _ruff_command = None
+
 
 @dataclass
 class ParsedCGX:
@@ -144,7 +193,7 @@ def run_ruff_format(
     Returns:
         Formatted Python source code
     """
-    ruff_command = ["ruff", "format"]
+    ruff_command = [get_ruff_command(), "format"]
     if check:
         ruff_command.append("--check")
 
@@ -189,7 +238,7 @@ def run_ruff_check(
     """
     with temp_py_file(source) as temp_path:
         ruff_command = [
-            "ruff",
+            get_ruff_command(),
             "check",
             f"--output-format={output_format}",
             "--no-cache",
