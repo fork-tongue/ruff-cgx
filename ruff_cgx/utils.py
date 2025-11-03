@@ -14,7 +14,7 @@ from collagraph.sfc.compiler import construct_ast
 from collagraph.sfc.parser import CGXParser, Element
 
 # Module-level configuration for ruff command
-_ruff_command: Optional[str] = None
+_ruff_command: str | None = None
 
 
 def set_ruff_command(command: str) -> None:
@@ -68,7 +68,7 @@ class ParsedCGX:
     """Result of parsing a CGX file."""
 
     parser: CGXParser
-    script_node: Optional[Element]
+    script_node: Element | None
     template_nodes: List[Element]
 
 
@@ -109,7 +109,7 @@ def parse_cgx_file(content: str) -> ParsedCGX:
     )
 
 
-def extract_script_content(script_node: Element) -> Optional[ScriptContent]:
+def extract_script_content(script_node: Element) -> ScriptContent | None:
     """
     Extract pure Python content from a script node.
 
