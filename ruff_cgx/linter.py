@@ -11,7 +11,7 @@ from .utils import (
 )
 
 
-def _prepare_content_for_linting(content: str) -> tuple[str | None, bool]:
+def _prepare_content_for_linting(content: str) -> str | None:
     """
     Prepare CGX content for linting by extracting Python and creating virtual content.
 
@@ -19,20 +19,17 @@ def _prepare_content_for_linting(content: str) -> tuple[str | None, bool]:
         content: The CGX file content as a string
 
     Returns:
-        Tuple of (virtual_content, has_script) where:
-        - virtual_content is the prepared Python code ready for ruff,
-          or None if no script
-        - has_script indicates whether a script section was found
+        The prepared Python code ready for ruff, or None if no script section
     """
     # Parse the CGX file
     parsed = parse_cgx_file(content)
     if not parsed.script_node:
-        return None, False
+        return None
 
     # Extract pure Python content
     script_content = extract_script_content(parsed.script_node)
     if not script_content:
-        return None, False
+        return None
 
     # Prepend with comment lines to preserve line numbers for diagnostics
     prefix_lines = ["#\n"] * script_content.start_line
@@ -48,7 +45,7 @@ def _prepare_content_for_linting(content: str) -> tuple[str | None, bool]:
     # This allows ruff to see template variable usage
     virtual_content = create_virtual_render_content(content, modified_lines)
 
-    return virtual_content, True
+    return virtual_content
 
 
 def lint_file(path, **_):
@@ -67,8 +64,8 @@ def lint_file(path, **_):
     content = path.read_text(encoding="utf-8")
 
     # Prepare content for linting
-    virtual_content, has_script = _prepare_content_for_linting(content)
-    if not has_script:
+    virtual_content = _prepare_content_for_linting(content)
+    if virtual_content is None:
         return 1
 
     # Run ruff check with full output (for CLI)
@@ -106,8 +103,8 @@ def lint_cgx_content(content: str) -> List[Diagnostic]:
         List of diagnostics
     """
     # Prepare content for linting
-    virtual_content, has_script = _prepare_content_for_linting(content)
-    if not has_script:
+    virtual_content = _prepare_content_for_linting(content)
+    if virtual_content is None:
         return []
 
     # Run ruff on the virtual file
