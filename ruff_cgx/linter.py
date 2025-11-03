@@ -11,6 +11,46 @@ from .utils import (
 )
 
 
+def _prepare_content_for_linting(content: str) -> tuple[str | None, bool]:
+    """
+    Prepare CGX content for linting by extracting Python and creating virtual content.
+
+    Args:
+        content: The CGX file content as a string
+
+    Returns:
+        Tuple of (virtual_content, has_script) where:
+        - virtual_content is the prepared Python code ready for ruff,
+          or None if no script
+        - has_script indicates whether a script section was found
+    """
+    # Parse the CGX file
+    parsed = parse_cgx_file(content)
+    if not parsed.script_node:
+        return None, False
+
+    # Extract pure Python content
+    script_content = extract_script_content(parsed.script_node)
+    if not script_content:
+        return None, False
+
+    # Prepend with comment lines to preserve line numbers for diagnostics
+    prefix_lines = ["#\n"] * script_content.start_line
+    python_lines = script_content.python_code.splitlines(keepends=True)
+    modified_lines = prefix_lines + python_lines
+
+    # Add newline to lines that don't have it
+    modified_lines = [
+        line if line.endswith("\n") else f"{line}\n" for line in modified_lines
+    ]
+
+    # Create virtual content with render method
+    # This allows ruff to see template variable usage
+    virtual_content = create_virtual_render_content(content, modified_lines)
+
+    return virtual_content, True
+
+
 def lint_file(path, **_):
     """
     Lint a CGX file using ruff (CLI version).
@@ -26,28 +66,10 @@ def lint_file(path, **_):
     path = Path(path)
     content = path.read_text(encoding="utf-8")
 
-    # Parse CGX file
-    parsed = parse_cgx_file(content)
-    if not parsed.script_node:
+    # Prepare content for linting
+    virtual_content, has_script = _prepare_content_for_linting(content)
+    if not has_script:
         return 1
-
-    # Extract pure Python content
-    script_content = extract_script_content(parsed.script_node)
-    if not script_content:
-        return 1
-
-    # Prepend with comment lines to preserve line numbers for diagnostics
-    prefix_lines = ["#\n"] * script_content.start_line
-    python_lines = script_content.python_code.splitlines(keepends=True)
-    template_commented = prefix_lines + python_lines
-
-    # Add newline to lines that don't have it
-    template_commented = [
-        line if line.endswith("\n") else f"{line}\n" for line in template_commented
-    ]
-
-    # Create virtual content with render method
-    virtual_content = create_virtual_render_content(content, template_commented)
 
     # Run ruff check with full output (for CLI)
     result, temp_path = run_ruff_check(virtual_content, output_format="full")
@@ -83,32 +105,10 @@ def lint_cgx_content(content: str) -> List[Diagnostic]:
     Returns:
         List of diagnostics
     """
-    # Parse the CGX file using Collagraph's parser
-    parsed = parse_cgx_file(content)
-
-    # Check if there's a script section
-    if not parsed.script_node:
-        # No script section, nothing to lint
+    # Prepare content for linting
+    virtual_content, has_script = _prepare_content_for_linting(content)
+    if not has_script:
         return []
-
-    # Extract pure Python content
-    script_content = extract_script_content(parsed.script_node)
-    if not script_content:
-        return []
-
-    # Prepend with comment lines to preserve line numbers for diagnostics
-    prefix_lines = ["#\n"] * script_content.start_line
-    python_lines = script_content.python_code.splitlines(keepends=True)
-    modified_lines = prefix_lines + python_lines
-
-    # Add newline to lines that don't have it
-    modified_lines = [
-        line if line.endswith("\n") else f"{line}\n" for line in modified_lines
-    ]
-
-    # Try to construct AST and append virtual render method
-    # This allows ruff to see template variable usage
-    virtual_content = create_virtual_render_content(content, modified_lines)
 
     # Run ruff on the virtual file
     diagnostics = _run_ruff(virtual_content)
