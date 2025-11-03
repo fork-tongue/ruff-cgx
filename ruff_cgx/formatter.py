@@ -12,12 +12,21 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def format_script(script_node, source_lines):
+def format_script(script_node, source_lines, check=False):
     """
-    Format script section (CLI version with printing).
+    Format script section using ruff.
 
-    Returns formatted source and the original location of the node.
+    Args:
+        script_node: script node from collagraph's parser
+        source_lines: contents of source file as list of lines
+        check: If True, only check without modifying (for ruff format --check)
+
+    Returns:
+        Tuple of (formatted_lines, (start_line, end_line))
     """
+    if script_node.end is None:
+        raise RuntimeError("Invalid script node: no end")
+
     # Extract pure Python content
     script_content = extract_script_content(script_node)
     if not script_content:
@@ -26,7 +35,7 @@ def format_script(script_node, source_lines):
         return source_lines[start:end], (start, end)
 
     # Format using ruff
-    formatted_source = run_ruff_format(script_content.python_code, check=False)
+    formatted_source = run_ruff_format(script_content.python_code, check=check)
 
     # Convert to lines
     formatted_lines = formatted_source.splitlines(keepends=True)
@@ -138,10 +147,8 @@ def format_cgx_content(content: str, uri: str = "") -> str:
             logger.warning(f"Missing script node in {uri}")
             return content
 
-        # Format script section (using updated signature for LSP)
-        script_content, script_location = format_script_content(
-            parsed.script_node, lines
-        )
+        # Format script section
+        script_content, script_location = format_script(parsed.script_node, lines)
 
         # Format all template nodes
         formatted_template_nodes = [
@@ -177,39 +184,3 @@ def format_cgx_content(content: str, uri: str = "") -> str:
         logger.error(f"Error formatting {uri}: {e}", exc_info=True)
         # Return original content on error
         return content
-
-
-def format_script_content(script_node, source_lines):
-    """
-    Format the script section of a CGX file using ruff (for LSP use).
-
-    Args:
-        script_node: script node from collagraph's parser
-        source_lines: contents of source file as list of lines
-
-    Returns:
-        Formatted source and the original location of the node.
-    """
-    if script_node.end is None:
-        raise RuntimeError("Invalid script node: no end")
-
-    # Extract pure Python content
-    script_content = extract_script_content(script_node)
-    if not script_content:
-        # No content to format
-        start, end = get_script_range(script_node)
-        return source_lines[start:end], (start, end)
-
-    # Format using ruff
-    formatted_source = run_ruff_format(script_content.python_code)
-
-    # Convert to lines
-    formatted_lines = formatted_source.splitlines(keepends=True)
-
-    # If Python was on same line as tag, prepend the tag on its own line
-    if not script_content.starts_on_new_line:
-        formatted_lines = ["<script>\n", *formatted_lines]
-
-    # Return formatted content with range that will be replaced
-    # This ensures Python code always starts on a new line after <script>
-    return formatted_lines, (script_content.start_line, script_content.end_line)
