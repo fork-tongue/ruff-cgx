@@ -2,27 +2,59 @@ import logging
 from pathlib import Path
 
 from .template_formatter import format_template
-from .utils import get_script_range, parse_cgx_file, run_ruff_format
+from .utils import (
+    extract_script_content,
+    parse_cgx_file,
+    run_ruff_format,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def format_script(script_node, source_lines):
+def format_script(script_node, source_lines, check=False):
     """
-    Format script section (CLI version with printing).
+    Format script section using ruff.
 
-    Returns formatted source and the original location of the node.
+    Args:
+        script_node: script node from collagraph's parser
+        source_lines: contents of source file as list of lines
+        check: If True, only check without modifying (for ruff format --check)
+
+    Returns:
+        Tuple of (formatted_lines, (start_line, end_line))
     """
-    start, end = get_script_range(script_node)
-    source = "".join(source_lines[start:end])
+    if script_node.end is None:
+        raise RuntimeError("Invalid script node: no end")
+
+    # Extract pure Python content
+    script_content = extract_script_content(script_node)
+    if not script_content:
+        # No content to format - return original lines unchanged
+        start = script_node.location[0] - 1  # Convert to 0-indexed
+        end = script_node.end[0] - 1  # End tag line
+        return source_lines[start:end], (start, end)
 
     # Format using ruff
-    formatted_source = run_ruff_format(source, check=False)
+    formatted_source = run_ruff_format(script_content.python_code, check=check)
 
-    # Convert back to lines for consistency
+    # Convert to lines
     formatted_lines = formatted_source.splitlines(keepends=True)
 
-    return formatted_lines, (start, end)
+    # If Python was on same line as tag, prepend the tag on its own line
+    if not script_content.starts_on_new_line:
+        formatted_lines = ["<script>\n", *formatted_lines]
+
+    # If closing tag was inline with Python code, we need to:
+    # 1. Append closing tag to formatted output
+    # 2. Extend replacement range to include that line
+    if script_content.closing_tag_inline:
+        formatted_lines.append("</script>\n")
+        replacement_end = script_content.end_line + 1
+    else:
+        replacement_end = script_content.end_line
+
+    # Return formatted content with range that will be replaced
+    return formatted_lines, (script_content.start_line, replacement_end)
 
 
 def format_file(path, check=False, write=True):
@@ -123,10 +155,8 @@ def format_cgx_content(content: str, uri: str = "") -> str:
             logger.warning(f"Missing script node in {uri}")
             return content
 
-        # Format script section (using updated signature for LSP)
-        script_content, script_location = format_script_content(
-            parsed.script_node, lines
-        )
+        # Format script section
+        script_content, script_location = format_script(parsed.script_node, lines)
 
         # Format all template nodes
         formatted_template_nodes = [
@@ -162,30 +192,3 @@ def format_cgx_content(content: str, uri: str = "") -> str:
         logger.error(f"Error formatting {uri}: {e}", exc_info=True)
         # Return original content on error
         return content
-
-
-def format_script_content(script_node, source_lines):
-    """
-    Format the script section of a CGX file using ruff (for LSP use).
-
-    Args:
-        script_node: script node from collagraph's parser
-        source_lines: contents of source file as list of lines
-
-    Returns:
-        Formatted source and the original location of the node.
-    """
-    if script_node.end is None:
-        raise RuntimeError("Invalid script node: no end")
-
-    start, end = get_script_range(script_node)
-    source = "".join(source_lines[start:end])
-
-    # Format using ruff
-    formatted_source = run_ruff_format(source)
-
-    # Convert to lines for consistency
-    formatted_lines = formatted_source.splitlines(keepends=True)
-
-    # Return the formatted content and its location
-    return formatted_lines, (start, end)

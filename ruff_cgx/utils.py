@@ -8,13 +8,13 @@ import textwrap
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from collagraph.sfc.compiler import construct_ast
 from collagraph.sfc.parser import CGXParser, Element
 
 # Module-level configuration for ruff command
-_ruff_command: Optional[str] = None
+_ruff_command: str | None = None
 
 
 def set_ruff_command(command: str) -> None:
@@ -68,8 +68,19 @@ class ParsedCGX:
     """Result of parsing a CGX file."""
 
     parser: CGXParser
-    script_node: Optional[Element]
+    script_node: Element | None
     template_nodes: List[Element]
+
+
+@dataclass
+class ScriptContent:
+    """Result of extracting Python content from a script node."""
+
+    python_code: str  # Pure Python content (without leading newline)
+    start_line: int  # 0-indexed line where Python actually starts
+    end_line: int  # 0-indexed line where </script> tag is
+    starts_on_new_line: bool  # Whether Python was on a new line after <script>
+    closing_tag_inline: bool  # Whether </script> is on same line as last Python code
 
 
 def parse_cgx_file(content: str) -> ParsedCGX:
@@ -99,19 +110,59 @@ def parse_cgx_file(content: str) -> ParsedCGX:
     )
 
 
-def get_script_range(script_node: Element) -> tuple[int, int]:
+def extract_script_content(script_node: Element) -> ScriptContent | None:
     """
-    Get the line range of a script node.
+    Extract pure Python content from a script node.
+
+    This handles cases where Python code is on the same line as the <script> tag
+    by extracting the content from the TextElement child and determining the actual
+    line boundaries.
 
     Args:
         script_node: The script node from CGXParser
 
     Returns:
-        Tuple of (start_line, end_line) where end_line is exclusive
+        ScriptContent with pure Python code and location info, or None if no content
     """
-    start = script_node.location[0]
-    end = script_node.end[0] - 1  # -1 because end points to closing tag
-    return start, end
+    if not script_node.children:
+        return None
+
+    script_child = script_node.children[0]
+    python_content = script_child.content
+
+    # Get the line where the <script> tag starts and where it ends
+    script_tag_line = script_node.location[0] - 1  # Convert to 0-indexed
+    end_line = script_node.end[0] - 1  # End tag line (0-indexed)
+
+    # Determine if Python starts on a new line after <script>
+    starts_on_new_line = python_content.startswith("\n")
+
+    # Determine if closing tag is on the same line as Python code
+    # If column > 0, there's content before the closing tag
+    closing_tag_inline = script_node.end[1] > 0
+
+    # Strip leading newline if present
+    if starts_on_new_line:
+        python_content = python_content[1:]
+        start_line = script_tag_line + 1
+    else:
+        start_line = script_tag_line
+
+    # Strip leading/trailing whitespace from the Python content
+    # (parser may include spaces when tags are inline)
+    python_content = python_content.strip()
+
+    # Ensure content ends with a newline for proper formatting
+    if python_content and not python_content.endswith("\n"):
+        python_content += "\n"
+
+    return ScriptContent(
+        python_code=python_content,
+        start_line=start_line,
+        end_line=end_line,
+        starts_on_new_line=starts_on_new_line,
+        closing_tag_inline=closing_tag_inline,
+    )
 
 
 def create_virtual_render_content(
