@@ -517,3 +517,23 @@ def test_format_almost_no_script_content():
     ).lstrip()
 
     assert formatted == expected
+
+
+def test_format_basic_script_content():
+    content = textwrap.dedent(
+        """
+        <script>  import os  </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+
+    expected = textwrap.dedent(
+        """
+        <script>
+        import os
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected

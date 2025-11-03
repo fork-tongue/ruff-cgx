@@ -29,7 +29,9 @@ def format_script(script_node, source_lines, check=False):
     # Extract pure Python content
     script_content = extract_script_content(script_node)
     if not script_content:
-        # No content to format
+        # No content to format - return original lines unchanged
+        start = script_node.location[0] - 1  # Convert to 0-indexed
+        end = script_node.end[0] - 1  # End tag line
         return source_lines[start:end], (start, end)
 
     # Format using ruff
@@ -42,9 +44,17 @@ def format_script(script_node, source_lines, check=False):
     if not script_content.starts_on_new_line:
         formatted_lines = ["<script>\n", *formatted_lines]
 
+    # If closing tag was inline with Python code, we need to:
+    # 1. Append closing tag to formatted output
+    # 2. Extend replacement range to include that line
+    if script_content.closing_tag_inline:
+        formatted_lines.append("</script>\n")
+        replacement_end = script_content.end_line + 1
+    else:
+        replacement_end = script_content.end_line
+
     # Return formatted content with range that will be replaced
-    # This ensures Python code always starts on a new line after <script>
-    return formatted_lines, (script_content.start_line, script_content.end_line)
+    return formatted_lines, (script_content.start_line, replacement_end)
 
 
 def format_file(path, check=False, write=True):

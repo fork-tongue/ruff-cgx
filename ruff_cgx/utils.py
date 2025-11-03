@@ -8,7 +8,7 @@ import textwrap
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from collagraph.sfc.compiler import construct_ast
 from collagraph.sfc.parser import CGXParser, Element
@@ -80,6 +80,7 @@ class ScriptContent:
     start_line: int  # 0-indexed line where Python actually starts
     end_line: int  # 0-indexed line where </script> tag is
     starts_on_new_line: bool  # Whether Python was on a new line after <script>
+    closing_tag_inline: bool  # Whether </script> is on same line as last Python code
 
 
 def parse_cgx_file(content: str) -> ParsedCGX:
@@ -136,6 +137,10 @@ def extract_script_content(script_node: Element) -> ScriptContent | None:
     # Determine if Python starts on a new line after <script>
     starts_on_new_line = python_content.startswith("\n")
 
+    # Determine if closing tag is on the same line as Python code
+    # If column > 0, there's content before the closing tag
+    closing_tag_inline = script_node.end[1] > 0
+
     # Strip leading newline if present
     if starts_on_new_line:
         python_content = python_content[1:]
@@ -143,11 +148,20 @@ def extract_script_content(script_node: Element) -> ScriptContent | None:
     else:
         start_line = script_tag_line
 
+    # Strip leading/trailing whitespace from the Python content
+    # (parser may include spaces when tags are inline)
+    python_content = python_content.strip()
+
+    # Ensure content ends with a newline for proper formatting
+    if python_content and not python_content.endswith("\n"):
+        python_content += "\n"
+
     return ScriptContent(
         python_code=python_content,
         start_line=start_line,
         end_line=end_line,
         starts_on_new_line=starts_on_new_line,
+        closing_tag_inline=closing_tag_inline,
     )
 
 
