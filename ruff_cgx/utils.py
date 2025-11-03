@@ -109,7 +109,20 @@ def get_script_range(script_node: Element) -> tuple[int, int]:
     Returns:
         Tuple of (start_line, end_line) where end_line is exclusive
     """
-    start = script_node.location[0]
+    # Use the location of the actual content (TextElement child) if available
+    # This handles cases where Python code is on the same line as <script> tag
+    if script_node.children and hasattr(script_node.children[0], "location"):
+        content_start_line = script_node.children[0].location[0] - 1  # Convert to 0-indexed
+        # Check if the content starts with a newline (meaning tag is on its own line)
+        if script_node.children[0].content.startswith('\n'):
+            # Python code starts on the next line after the tag
+            start = content_start_line + 1
+        else:
+            # Python code is on the same line as the tag
+            start = content_start_line
+    else:
+        start = script_node.location[0]
+
     end = script_node.end[0] - 1  # -1 because end points to closing tag
     return start, end
 

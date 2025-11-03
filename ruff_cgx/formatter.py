@@ -13,16 +13,44 @@ def format_script(script_node, source_lines):
 
     Returns formatted source and the original location of the node.
     """
-    start, end = get_script_range(script_node)
-    source = "".join(source_lines[start:end])
+    # Extract pure Python content from TextElement to handle cases where
+    # Python code is on the same line as the <script> tag
+    if not script_node.children:
+        # No content to format
+        start, end = get_script_range(script_node)
+        return source_lines[start:end], (start, end)
+
+    script_child = script_node.children[0]
+    python_content = script_child.content
+
+    # Get the line where the <script> tag starts
+    script_tag_line = script_node.location[0] - 1  # Convert to 0-indexed
+    content_end_line = script_node.end[0] - 1  # End tag line (0-indexed)
+
+    # Determine where Python content actually starts
+    if python_content.startswith('\n'):
+        # Python is already on a new line, strip the newline
+        python_content = python_content[1:]
+        python_start_line = script_tag_line + 1
+        prepend_tag = False
+    else:
+        # Python is on the same line as <script>, need to move it to new line
+        python_start_line = script_tag_line
+        prepend_tag = True
 
     # Format using ruff
-    formatted_source = run_ruff_format(source, check=False)
+    formatted_source = run_ruff_format(python_content, check=False)
 
-    # Convert back to lines for consistency
+    # Convert to lines
     formatted_lines = formatted_source.splitlines(keepends=True)
 
-    return formatted_lines, (start, end)
+    # If Python was on same line as tag, prepend the tag on its own line
+    if prepend_tag:
+        formatted_lines = ['<script>\n'] + formatted_lines
+
+    # Return formatted content with range that will be replaced
+    # This ensures Python code always starts on a new line after <script>
+    return formatted_lines, (python_start_line, content_end_line)
 
 
 def format_file(path, check=False, write=True):
@@ -178,14 +206,41 @@ def format_script_content(script_node, source_lines):
     if script_node.end is None:
         raise RuntimeError("Invalid script node: no end")
 
-    start, end = get_script_range(script_node)
-    source = "".join(source_lines[start:end])
+    # Extract pure Python content from TextElement to handle cases where
+    # Python code is on the same line as the <script> tag
+    if not script_node.children:
+        # No content to format
+        start, end = get_script_range(script_node)
+        return source_lines[start:end], (start, end)
+
+    script_child = script_node.children[0]
+    python_content = script_child.content
+
+    # Get the line where the <script> tag starts
+    script_tag_line = script_node.location[0] - 1  # Convert to 0-indexed
+    content_end_line = script_node.end[0] - 1  # End tag line (0-indexed)
+
+    # Determine where Python content actually starts
+    if python_content.startswith('\n'):
+        # Python is already on a new line, strip the newline
+        python_content = python_content[1:]
+        python_start_line = script_tag_line + 1
+        prepend_tag = False
+    else:
+        # Python is on the same line as <script>, need to move it to new line
+        python_start_line = script_tag_line
+        prepend_tag = True
 
     # Format using ruff
-    formatted_source = run_ruff_format(source)
+    formatted_source = run_ruff_format(python_content)
 
-    # Convert to lines for consistency
+    # Convert to lines
     formatted_lines = formatted_source.splitlines(keepends=True)
 
-    # Return the formatted content and its location
-    return formatted_lines, (start, end)
+    # If Python was on same line as tag, prepend the tag on its own line
+    if prepend_tag:
+        formatted_lines = ['<script>\n'] + formatted_lines
+
+    # Return formatted content with range that will be replaced
+    # This ensures Python code always starts on a new line after <script>
+    return formatted_lines, (python_start_line, content_end_line)

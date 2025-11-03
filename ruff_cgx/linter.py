@@ -31,16 +31,28 @@ def lint_file(path, **_):
     if not parsed.script_node:
         return 1
 
-    # Get script range
-    start, end = get_script_range(parsed.script_node)
-    script_range = range(start, end)
+    # Extract pure Python content from the TextElement child
+    if not parsed.script_node.children:
+        return 1
 
-    # Read source lines
-    lines = content.splitlines(keepends=True)
+    script_child = parsed.script_node.children[0]
+    python_content = script_child.content
 
-    # Comment out all non-script lines
+    # Get the line where Python content starts (1-indexed from parser)
+    content_start_line = script_child.location[0] - 1  # Convert to 0-indexed
+
+    # Strip leading newline if present (happens when <script> is on its own line)
+    if python_content.startswith('\n'):
+        python_content = python_content[1:]
+        content_start_line += 1
+
+    # Prepend with comment lines to preserve line numbers for diagnostics
+    prefix_lines = ['#\n'] * content_start_line
+    template_commented = prefix_lines + python_content.splitlines(keepends=True)
+
+    # Add newline to lines that don't have it
     template_commented = [
-        line if idx in script_range else "#\n" for idx, line in enumerate(lines)
+        line if line.endswith("\n") else f"{line}\n" for line in template_commented
     ]
 
     # Create virtual content with render method
@@ -88,22 +100,29 @@ def lint_cgx_content(content: str) -> List[Diagnostic]:
         # No script section, nothing to lint
         return []
 
-    # Get the line range of the script section
-    start_line, end_line = get_script_range(parsed.script_node)
+    # Extract pure Python content from the TextElement child
+    # This avoids issues with <script> tag being on the same line as Python code
+    if not parsed.script_node.children:
+        return []
 
-    # Create a modified version where non-script lines are commented out
-    source_lines = content.splitlines(keepends=True)
+    script_child = parsed.script_node.children[0]
+    python_content = script_child.content
 
-    # Add newline to lines that don't have it (to make sure last line has it?)
-    source_lines = [
-        line if line.endswith("\n") else f"{line}\n" for line in source_lines
-    ]
+    # Get the line where Python content starts (1-indexed from parser)
+    content_start_line = script_child.location[0] - 1  # Convert to 0-indexed
 
-    script_range = range(start_line, end_line)
+    # Strip leading newline if present (happens when <script> is on its own line)
+    if python_content.startswith('\n'):
+        python_content = python_content[1:]
+        content_start_line += 1
 
-    # Comment out all non-script lines to preserve line numbers
+    # Prepend with comment lines to preserve line numbers for diagnostics
+    prefix_lines = ['#\n'] * content_start_line
+    modified_lines = prefix_lines + python_content.splitlines(keepends=True)
+
+    # Add newline to lines that don't have it
     modified_lines = [
-        line if idx in script_range else "#\n" for idx, line in enumerate(source_lines)
+        line if line.endswith("\n") else f"{line}\n" for line in modified_lines
     ]
 
     # Try to construct AST and append virtual render method
