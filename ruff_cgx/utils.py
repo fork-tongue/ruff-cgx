@@ -72,6 +72,16 @@ class ParsedCGX:
     template_nodes: List[Element]
 
 
+@dataclass
+class ScriptContent:
+    """Result of extracting Python content from a script node."""
+
+    python_code: str  # Pure Python content (without leading newline)
+    start_line: int  # 0-indexed line where Python actually starts
+    end_line: int  # 0-indexed line where </script> tag is
+    starts_on_new_line: bool  # Whether Python was on a new line after <script>
+
+
 def parse_cgx_file(content: str) -> ParsedCGX:
     """
     Parse a CGX file and extract script and template nodes.
@@ -112,9 +122,10 @@ def get_script_range(script_node: Element) -> tuple[int, int]:
     # Use the location of the actual content (TextElement child) if available
     # This handles cases where Python code is on the same line as <script> tag
     if script_node.children and hasattr(script_node.children[0], "location"):
-        content_start_line = script_node.children[0].location[0] - 1  # Convert to 0-indexed
+        # Convert to 0-indexed
+        content_start_line = script_node.children[0].location[0] - 1
         # Check if the content starts with a newline (meaning tag is on its own line)
-        if script_node.children[0].content.startswith('\n'):
+        if script_node.children[0].content.startswith("\n"):
             # Python code starts on the next line after the tag
             start = content_start_line + 1
         else:
@@ -125,6 +136,48 @@ def get_script_range(script_node: Element) -> tuple[int, int]:
 
     end = script_node.end[0] - 1  # -1 because end points to closing tag
     return start, end
+
+
+def extract_script_content(script_node: Element) -> Optional[ScriptContent]:
+    """
+    Extract pure Python content from a script node.
+
+    This handles cases where Python code is on the same line as the <script> tag
+    by extracting the content from the TextElement child and determining the actual
+    line boundaries.
+
+    Args:
+        script_node: The script node from CGXParser
+
+    Returns:
+        ScriptContent with pure Python code and location info, or None if no content
+    """
+    if not script_node.children:
+        return None
+
+    script_child = script_node.children[0]
+    python_content = script_child.content
+
+    # Get the line where the <script> tag starts and where it ends
+    script_tag_line = script_node.location[0] - 1  # Convert to 0-indexed
+    end_line = script_node.end[0] - 1  # End tag line (0-indexed)
+
+    # Determine if Python starts on a new line after <script>
+    starts_on_new_line = python_content.startswith("\n")
+
+    # Strip leading newline if present
+    if starts_on_new_line:
+        python_content = python_content[1:]
+        start_line = script_tag_line + 1
+    else:
+        start_line = script_tag_line
+
+    return ScriptContent(
+        python_code=python_content,
+        start_line=start_line,
+        end_line=end_line,
+        starts_on_new_line=starts_on_new_line,
+    )
 
 
 def create_virtual_render_content(

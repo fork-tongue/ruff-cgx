@@ -5,7 +5,7 @@ from typing import List
 
 from .utils import (
     create_virtual_render_content,
-    get_script_range,
+    extract_script_content,
     parse_cgx_file,
     run_ruff_check,
 )
@@ -31,24 +31,15 @@ def lint_file(path, **_):
     if not parsed.script_node:
         return 1
 
-    # Extract pure Python content from the TextElement child
-    if not parsed.script_node.children:
+    # Extract pure Python content
+    script_content = extract_script_content(parsed.script_node)
+    if not script_content:
         return 1
 
-    script_child = parsed.script_node.children[0]
-    python_content = script_child.content
-
-    # Get the line where Python content starts (1-indexed from parser)
-    content_start_line = script_child.location[0] - 1  # Convert to 0-indexed
-
-    # Strip leading newline if present (happens when <script> is on its own line)
-    if python_content.startswith('\n'):
-        python_content = python_content[1:]
-        content_start_line += 1
-
     # Prepend with comment lines to preserve line numbers for diagnostics
-    prefix_lines = ['#\n'] * content_start_line
-    template_commented = prefix_lines + python_content.splitlines(keepends=True)
+    prefix_lines = ["#\n"] * script_content.start_line
+    python_lines = script_content.python_code.splitlines(keepends=True)
+    template_commented = prefix_lines + python_lines
 
     # Add newline to lines that don't have it
     template_commented = [
@@ -100,25 +91,15 @@ def lint_cgx_content(content: str) -> List[Diagnostic]:
         # No script section, nothing to lint
         return []
 
-    # Extract pure Python content from the TextElement child
-    # This avoids issues with <script> tag being on the same line as Python code
-    if not parsed.script_node.children:
+    # Extract pure Python content
+    script_content = extract_script_content(parsed.script_node)
+    if not script_content:
         return []
 
-    script_child = parsed.script_node.children[0]
-    python_content = script_child.content
-
-    # Get the line where Python content starts (1-indexed from parser)
-    content_start_line = script_child.location[0] - 1  # Convert to 0-indexed
-
-    # Strip leading newline if present (happens when <script> is on its own line)
-    if python_content.startswith('\n'):
-        python_content = python_content[1:]
-        content_start_line += 1
-
     # Prepend with comment lines to preserve line numbers for diagnostics
-    prefix_lines = ['#\n'] * content_start_line
-    modified_lines = prefix_lines + python_content.splitlines(keepends=True)
+    prefix_lines = ["#\n"] * script_content.start_line
+    python_lines = script_content.python_code.splitlines(keepends=True)
+    modified_lines = prefix_lines + python_lines
 
     # Add newline to lines that don't have it
     modified_lines = [

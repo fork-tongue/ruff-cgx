@@ -18,10 +18,10 @@ unused_variable = 123
     assert "F401" in codes  # Unused import
 
     # Check line numbers are correct (0-indexed)
-    pprint_diag = [d for d in diagnostics if "pprint" in d.message][0]
+    pprint_diag = next(d for d in diagnostics if "pprint" in d.message)
     assert pprint_diag.line == 0  # First line (0-indexed)
 
-    collagraph_diag = [d for d in diagnostics if "collagraph" in d.message][0]
+    collagraph_diag = next(d for d in diagnostics if "collagraph" in d.message)
     assert collagraph_diag.line == 1  # Second line (0-indexed)
 
 
@@ -74,10 +74,10 @@ unused_variable = 123
     assert "F401" in codes
 
     # Check line numbers are correct (0-indexed, line 1 is first Python line)
-    pprint_diag = [d for d in diagnostics if "pprint" in d.message][0]
+    pprint_diag = next(d for d in diagnostics if "pprint" in d.message)
     assert pprint_diag.line == 1  # Second line (0-indexed)
 
-    collagraph_diag = [d for d in diagnostics if "collagraph" in d.message][0]
+    collagraph_diag = next(d for d in diagnostics if "collagraph" in d.message)
     assert collagraph_diag.line == 2  # Third line (0-indexed)
 
 
