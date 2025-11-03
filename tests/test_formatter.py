@@ -479,3 +479,41 @@ def test_format_cgx_multiline_with_expressions():
     ).lstrip()
 
     assert formatted == expected
+
+
+def test_format_no_script_content():
+    content = textwrap.dedent(
+        """
+        <script></script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+
+    expected = textwrap.dedent(
+        """
+        <script></script>
+        """
+    ).lstrip()
+
+    assert formatted == expected
+
+
+def test_format_almost_no_script_content():
+    content = textwrap.dedent(
+        """
+        <script>
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+
+    expected = textwrap.dedent(
+        """
+        <script>
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected

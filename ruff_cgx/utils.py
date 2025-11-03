@@ -109,35 +109,6 @@ def parse_cgx_file(content: str) -> ParsedCGX:
     )
 
 
-def get_script_range(script_node: Element) -> tuple[int, int]:
-    """
-    Get the line range of a script node.
-
-    Args:
-        script_node: The script node from CGXParser
-
-    Returns:
-        Tuple of (start_line, end_line) where end_line is exclusive
-    """
-    # Use the location of the actual content (TextElement child) if available
-    # This handles cases where Python code is on the same line as <script> tag
-    if script_node.children and hasattr(script_node.children[0], "location"):
-        # Convert to 0-indexed
-        content_start_line = script_node.children[0].location[0] - 1
-        # Check if the content starts with a newline (meaning tag is on its own line)
-        if script_node.children[0].content.startswith("\n"):
-            # Python code starts on the next line after the tag
-            start = content_start_line + 1
-        else:
-            # Python code is on the same line as the tag
-            start = content_start_line
-    else:
-        start = script_node.location[0]
-
-    end = script_node.end[0] - 1  # -1 because end points to closing tag
-    return start, end
-
-
 def extract_script_content(script_node: Element) -> Optional[ScriptContent]:
     """
     Extract pure Python content from a script node.

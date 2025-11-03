@@ -4,7 +4,6 @@ from pathlib import Path
 from .template_formatter import format_template
 from .utils import (
     extract_script_content,
-    get_script_range,
     parse_cgx_file,
     run_ruff_format,
 )
@@ -31,7 +30,6 @@ def format_script(script_node, source_lines, check=False):
     script_content = extract_script_content(script_node)
     if not script_content:
         # No content to format
-        start, end = get_script_range(script_node)
         return source_lines[start:end], (start, end)
 
     # Format using ruff
