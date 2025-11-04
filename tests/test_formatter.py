@@ -646,3 +646,35 @@ def test_format_regression_imports():
     ).lstrip()
 
     assert formatted == expected
+
+
+def test_format_regression_order():
+    content = textwrap.dedent(
+        """
+        <script>
+        import collagraph as cg
+
+
+        class Meta(cg.Component):
+            pass
+        </script>
+
+        <widget />"""
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+    expected = textwrap.dedent(
+        """
+        <script>
+        import collagraph as cg
+
+
+        class Meta(cg.Component):
+            pass
+        </script>
+
+        <widget />
+        """
+    ).lstrip()
+
+    assert formatted == expected

@@ -141,6 +141,7 @@ def format_cgx_content(content: str, uri: str = "") -> str:
             key=lambda x: x[1][0],
         )
 
+        # Flatten the formatted parts
         formatted = []
         for content, _ in formatted_parts:
             formatted += content
