@@ -11,7 +11,7 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def format_script(script_node, source_lines, check=False):
+def format_script(script_node, check=False):
     """
     Format script section using ruff.
 
@@ -32,7 +32,7 @@ def format_script(script_node, source_lines, check=False):
         # No content to format - return original lines unchanged
         start = script_node.location[0] - 1  # Convert to 0-indexed
         end = script_node.end[0] - 1  # End tag line
-        return source_lines[start:end], (start, end)
+        return [], (start, end)
 
     # Format using ruff
     formatted_source = run_ruff_format(script_content.python_code, check=check)
@@ -42,14 +42,13 @@ def format_script(script_node, source_lines, check=False):
 
     # If Python was on same line as tag, prepend the tag on its own line
     if not script_content.starts_on_new_line:
-        formatted_lines = ["<script>\n", *formatted_lines]
+        formatted_lines = formatted_lines
 
     # If closing tag was inline with Python code, we need to:
     # 1. Append closing tag to formatted output
     # 2. Extend replacement range to include that line
     if script_content.closing_tag_inline:
-        formatted_lines.append("</script>\n")
-        replacement_end = script_content.end_line + 1
+        replacement_end = script_content.end_line
     else:
         replacement_end = script_content.end_line
 
@@ -57,7 +56,7 @@ def format_script(script_node, source_lines, check=False):
     return formatted_lines, (script_content.start_line, replacement_end)
 
 
-def format_file(path, check=False, write=True):
+def format_file(path: str | Path, check: bool = False, write: bool = True) -> int | str:
     """
     Format CGX files (the contents of the script tag) with ruff.
 
@@ -73,47 +72,19 @@ def format_file(path, check=False, write=True):
     """
     path = Path(path)
     if path.suffix != ".cgx":
-        return
+        return 1
 
     content = path.read_text(encoding="utf-8")
-    parsed = parse_cgx_file(content)
 
-    lines = content.splitlines(keepends=True)
+    formatted_content = format_cgx_content(content, str(path))
 
-    script_content, script_location = format_script(parsed.script_node, lines)
-    formatted_template_nodes = [format_template(node) for node in parsed.template_nodes]
-
-    changed_script = lines[script_location[0] : script_location[1]] != script_content
-    changed_template = any(
-        [
-            lines[template_location[0] : template_location[1]] != template_content
-            for template_content, template_location in formatted_template_nodes
-        ]
-    )
-    needs_newline_at_end_of_file = not lines[-1].endswith("\n")
-    changed = changed_script or changed_template or needs_newline_at_end_of_file
+    changed = content != formatted_content
     if check:
         if changed:
             print(f"Would reformat: {path}")  # noqa: T201
             return 1
         print("1 file already formatted")  # noqa: T201
         return 0
-
-    formatted_parts = reversed(
-        sorted(
-            [
-                (script_content, script_location),
-                *formatted_template_nodes,
-            ],
-            key=lambda x: x[1][0],
-        )
-    )
-
-    for formatted_content, (start, end) in formatted_parts:
-        lines[start:end] = formatted_content
-
-    if needs_newline_at_end_of_file:
-        lines.append("\n")
 
     # Print status message based on changes
     if changed:
@@ -122,12 +93,11 @@ def format_file(path, check=False, write=True):
         print("1 file left unchanged")  # noqa: T201
 
     if not write:
-        # For testing, return the lines instead of writing
-        return lines
+        return formatted_content
 
     if changed:
         with path.open(mode="w", encoding="utf-8") as fh:
-            fh.writelines(lines)
+            fh.write(formatted_content)
 
     return 0
 
@@ -147,46 +117,41 @@ def format_cgx_content(content: str, uri: str = "") -> str:
         # Parse the CGX file
         parsed = parse_cgx_file(content)
 
-        # Split content into lines
-        lines = content.splitlines(keepends=True)
-
         # Check for script node
         if not parsed.script_node:
             logger.warning(f"Missing script node in {uri}")
             return content
 
         # Format script section
-        script_content, script_location = format_script(parsed.script_node, lines)
+        script_lines, script_location = format_script(parsed.script_node)
+        script_node = ["<script>\n", *script_lines, "</script>\n"]
 
         # Format all template nodes
         formatted_template_nodes = [
             format_template(node) for node in parsed.template_nodes
         ]
 
-        # Check if newline is needed at end of file
-        needs_newline_at_end_of_file = lines and not lines[-1].endswith("\n")
-
         # Sort all formatted parts by their starting location
-        # (in reverse order for replacement)
-        formatted_parts = reversed(
-            sorted(
-                [
-                    (script_content, script_location),
-                    *formatted_template_nodes,
-                ],
-                key=lambda x: x[1][0],
-            )
+        # as to keep the same order that was in the original file
+        formatted_parts = sorted(
+            [
+                (script_node, script_location),
+                *formatted_template_nodes,
+            ],
+            key=lambda x: x[1][0],
         )
 
-        # Replace content in reverse order to maintain correct line indices
-        for formatted_content, (start, end) in formatted_parts:
-            lines[start:end] = formatted_content
+        # Flatten the formatted parts
+        formatted = []
+        for content, _ in formatted_parts:
+            formatted += content
+            # Put one empty line between root elements
+            formatted += "\n"
 
-        # Add newline at end if needed
-        if needs_newline_at_end_of_file:
-            lines.append("\n")
+        # Pop the last added line break
+        formatted.pop()
 
-        return "".join(lines)
+        return "".join(formatted)
 
     except Exception as e:
         logger.error(f"Error formatting {uri}: {e}", exc_info=True)
