@@ -32,18 +32,13 @@ def _prepare_content_for_linting(content: str) -> str | None:
         return None
 
     # Prepend with comment lines to preserve line numbers for diagnostics
-    prefix_lines = ["#\n"] * script_content.start_line
-    python_lines = script_content.python_code.splitlines(keepends=True)
-    modified_lines = prefix_lines + python_lines
+    prefix_content = "#\n" * script_content.start_line
 
-    # Add newline to lines that don't have it
-    modified_lines = [
-        line if line.endswith("\n") else f"{line}\n" for line in modified_lines
-    ]
+    modified_content = prefix_content + script_content.python_code
 
     # Create virtual content with render method
     # This allows ruff to see template variable usage
-    virtual_content = create_virtual_render_content(content, modified_lines)
+    virtual_content = create_virtual_render_content(content, modified_content)
 
     return virtual_content
 

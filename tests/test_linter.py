@@ -21,14 +21,10 @@ def test_lint_valid_code():
             pass
         </script>
         """
-    )
+    ).strip()
     diagnostics = lint_cgx_content(content)
 
-    assert len(diagnostics) == 0
-    # May have style warnings, but no syntax errors
-    assert all(
-        d.severity != "error" or "unavailable" in d.code.lower() for d in diagnostics
-    ), diagnostics
+    assert len(diagnostics) == 0, diagnostics
 
 
 def test_lint_invalid_code():
@@ -45,10 +41,9 @@ def test_lint_invalid_code():
 
         class Node(Component):
             def init(self):
-                self.message = undefined_variable
-        </script>
-        """.lstrip("\n")
-    )
+                self.message = undefined_variable</script>
+        """
+    ).strip()
     diagnostics = lint_cgx_content(content)
 
     # Should have 1 syntax error diagnostics:
@@ -67,8 +62,8 @@ def test_lint_empty_file():
     """Test linting an empty CGX file."""
     diagnostics = lint_cgx_content("")
 
-    # Should return empty list or just ruff availability warning
-    assert isinstance(diagnostics, list)
+    # Should return empty list
+    assert len(diagnostics) == 0, diagnostics
 
 
 def test_lint_unused_import():
