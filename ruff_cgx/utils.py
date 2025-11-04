@@ -165,9 +165,7 @@ def extract_script_content(script_node: Element) -> ScriptContent | None:
     )
 
 
-def create_virtual_render_content(
-    original_content: str, modified_lines: List[str]
-) -> str:
+def create_virtual_render_content(original_content: str, modified_content: str) -> str:
     """
     Create virtual content with render method appended for template-aware linting.
 
@@ -176,7 +174,7 @@ def create_virtual_render_content(
 
     Args:
         original_content: The original CGX file content
-        modified_lines: Lines with non-script sections commented out
+        modified_content: content with non-script sections commented out
 
     Returns:
         Modified content with virtual render method appended
@@ -194,7 +192,7 @@ def create_virtual_render_content(
 
         if not component_class_def:
             # No class found, just return the commented content
-            return "".join(modified_lines)
+            return modified_content
 
         component_class_name = component_class_def.name
 
@@ -207,7 +205,7 @@ def create_virtual_render_content(
 
         if not render_method:
             # No render method, just return the commented content
-            return "".join(modified_lines)
+            return modified_content
 
         # Unparse the render method to get the source code
         render_source = ast.unparse(render_method)
@@ -215,19 +213,20 @@ def create_virtual_render_content(
 
         # Append a virtual subclass with the render method
         # This helps ruff see that template variables are used
-        modified_lines.append(
+        virtual_class_def = (
             f"class Virtual{component_class_name}({component_class_name}):\n"
         )
         # Add the render method with noqa to ignore issues in generated code
-        for line in render_source.split("\n"):
-            modified_lines.append(f"{line}  # noqa\n")
+        virtual_class_content = "".join(
+            [f"{line}  # noqa\n" for line in render_source.splitlines()]
+        )
 
-        return "".join(modified_lines)
+        return modified_content + virtual_class_def + virtual_class_content
 
     except Exception:
         # If anything fails, just return the basic commented content
         # This ensures linting still works even if AST construction fails
-        return "".join(modified_lines)
+        return modified_content
 
 
 def run_ruff_format(
