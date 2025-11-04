@@ -37,7 +37,7 @@ def test_format_template(capsys, data_path):
     lines = format_file(template_cgx, write=False)
 
     expected = textwrap.dedent(
-        """
+        """\
             <template>
               <root>
                 <item
@@ -99,7 +99,7 @@ def test_format_template(capsys, data_path):
                 pass
             </script>
         """
-    ).lstrip()
+    )
     assert "".join(lines) == expected
 
     stdout = capsys.readouterr().out
@@ -148,9 +148,6 @@ def test_works_with_no_template_elaborate(capsys, data_path):
         """
             <node />
 
-
-
-
             <script>
             from collagraph import Component
 
@@ -159,12 +156,9 @@ def test_works_with_no_template_elaborate(capsys, data_path):
                 pass
             </script>
 
-
-
             <other-node>
               <should-work-just-fine />
             </other-node>
-
         """
     ).lstrip()
     assert "".join(lines) == expected

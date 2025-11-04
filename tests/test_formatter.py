@@ -370,9 +370,6 @@ def test_format_no_template_elaborate():
         """
         <node />
 
-
-
-
         <script>
         from collagraph import Component
 
@@ -381,12 +378,9 @@ def test_format_no_template_elaborate():
             pass
         </script>
 
-
-
         <other-node>
           <should-work-just-fine />
         </other-node>
-
         """
     ).lstrip()
 
@@ -492,7 +486,8 @@ def test_format_no_script_content():
 
     expected = textwrap.dedent(
         """
-        <script></script>
+        <script>
+        </script>
         """
     ).lstrip()
 
@@ -532,6 +527,120 @@ def test_format_basic_script_content():
         """
         <script>
         import os
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected
+
+
+def test_format_regression_template():
+    content = textwrap.dedent(
+        """
+        <mesh
+          :geometry="sphere_geom"
+          :material="materials[material]"
+          :local.position="position"
+          @click="set_selected"
+          @pointer_move="set_hovered"
+        />
+
+        <script>
+        # ...
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+
+    expected = textwrap.dedent(
+        """
+        <mesh
+          :geometry="sphere_geom"
+          :local.position="position"
+          :material="materials[material]"
+          @click="set_selected"
+          @pointer_move="set_hovered"
+        />
+
+        <script>
+        # ...
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected
+
+
+def test_format_regression_extra_lines():
+    content = textwrap.dedent(
+        """
+        <widget />
+
+        <script>
+        import collagraph as cg
+
+        class Meta(cg.Component):
+            pass
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+    expected = textwrap.dedent(
+        """
+        <widget />
+
+        <script>
+        import collagraph as cg
+
+
+        class Meta(cg.Component):
+            pass
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected
+
+
+def test_format_regression_imports():
+    content = textwrap.dedent(
+        """
+        <widget />
+
+        <script>
+        import collagraph as cg
+
+
+
+        import subprocess
+
+
+
+
+        import os
+
+        class Meta(cg.Component):
+            pass
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+    expected = textwrap.dedent(
+        """
+        <widget />
+
+        <script>
+        import os
+        import subprocess
+
+        import collagraph as cg
+
+
+        class Meta(cg.Component):
+            pass
         </script>
         """
     ).lstrip()

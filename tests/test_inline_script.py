@@ -41,6 +41,7 @@ def test_format_inline_script():
     expected = dedent("""\
         <script>
         from pprint import pprint
+
         import collagraph
 
         unused_variable = 123
@@ -61,6 +62,7 @@ def test_format_inline_script_normalizes_to_newline():
     expected = dedent("""\
         <script>
         from pprint import pprint
+
         import collagraph
         </script>
         """)
@@ -105,6 +107,7 @@ def test_format_with_newline_after_script():
     expected = dedent("""\
         <script>
         from pprint import pprint
+
         import collagraph
 
         unused_variable = 123
@@ -125,6 +128,7 @@ def test_format_with_no_newlines_start_and_end_of_script():
     expected = dedent("""\
         <script>
         from pprint import pprint
+
         import collagraph
 
         unused_variable = 123

@@ -2,6 +2,7 @@
 
 import ast
 import os
+import re
 import subprocess
 import tempfile
 import textwrap
@@ -129,6 +130,7 @@ def extract_script_content(script_node: Element) -> ScriptContent | None:
 
     script_child = script_node.children[0]
     python_content = script_child.content
+    assert "<script" not in python_content
 
     # Get the line where the <script> tag starts and where it ends
     script_tag_line = script_node.location[0] - 1  # Convert to 0-indexed
@@ -229,6 +231,38 @@ def create_virtual_render_content(original_content: str, modified_content: str) 
         return modified_content
 
 
+def is_isort_configured() -> bool:
+    """Check if 'unsorted-imports' is both enabled and marked as should_fix."""
+    result = False
+    try:
+        # Print ruff settings
+        ruff_output = subprocess.run(
+            ["ruff", "check", "--show-settings"], capture_output=True, text=True
+        ).stdout
+
+        # Get both the enabled + should_fix sections
+        enabled_match = re.search(
+            r"linter\.rules\.enabled = \[(.*?)\]", ruff_output, re.DOTALL
+        )
+
+        should_fix_match = re.search(
+            r"linter\.rules\.should_fix = \[(.*?)\]", ruff_output, re.DOTALL
+        )
+
+        if not enabled_match or not should_fix_match:
+            return False
+
+        # Check that 'unsorted-imports' rule appears in both sections
+        in_enabled = "unsorted-imports" in enabled_match.group(1)
+        in_should_fix = "unsorted-imports" in should_fix_match.group(1)
+
+        return in_enabled and in_should_fix
+
+    except Exception:
+        pass
+    return result
+
+
 def run_ruff_format(
     source: str, *, use_single_quotes: bool = False, check: bool = False
 ) -> str:
@@ -247,14 +281,18 @@ def run_ruff_format(
     if check:
         ruff_command.append("--check")
 
+    should_sort_imports = is_isort_configured()
+
     with tempfile.TemporaryDirectory() as directory:
         target_file = Path(directory) / "source.py"
-        target_file.write_text(source)
+        target_file.write_text(source, encoding="utf-8")
 
         # Create config if single quotes requested
         if use_single_quotes:
             config_file = Path(directory) / "ruff.toml"
-            config_file.write_text('[format]\nquote-style = "single"\n')
+            config_file.write_text(
+                '[format]\nquote-style = "single"\n', encoding="utf-8"
+            )
             ruff_command.extend(["--config", str(config_file)])
 
         ruff_command.append(str(target_file))
@@ -264,6 +302,22 @@ def run_ruff_format(
         env["CLICOLOR_FORCE"] = "1"
 
         # Run ruff
+        if should_sort_imports:
+            # Sort imports with: ruff check --select I --fix .
+            result = subprocess.run(
+                [
+                    get_ruff_command(),
+                    "check",
+                    "--select",
+                    "I",
+                    "--fix",
+                    str(target_file),
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+        # Then do the formatting
         result = subprocess.run(ruff_command, capture_output=True, text=True, env=env)
 
         if result.returncode == 0 or not check:
