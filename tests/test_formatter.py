@@ -695,7 +695,7 @@ def test_format_multiline_dict_template():
             def some_really_long_name_such_that_it_should_wrap(self):
                 return 2
         </script>
-        """
+        """  # noqa: E501
     ).lstrip()
 
     formatted = format_cgx_content(content)
@@ -739,7 +739,7 @@ def test_format_multiline_dict_template_multi_attrs():
         class Item(cg.Component):
             pass
         </script>
-        """
+        """  # noqa: E501
     ).lstrip()
 
     formatted = format_cgx_content(content)
