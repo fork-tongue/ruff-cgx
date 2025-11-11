@@ -678,3 +678,95 @@ def test_format_regression_order():
     ).lstrip()
 
     assert formatted == expected
+
+
+def test_format_multiline_dict_template():
+    content = textwrap.dedent(
+        """
+        <template>
+        <item :value="{'foo': 'foo', 'bar': 'bar', 'test': some_really_long_name_such_that_it_should_wrap()}" />
+        </template>
+
+        <script>
+        import collagraph as cg
+
+
+        class Test(cg.Component):
+            def some_really_long_name_such_that_it_should_wrap(self):
+                return 2
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+    expected = textwrap.dedent(
+        """
+        <template>
+          <item :value="{
+            'foo': 'foo',
+            'bar': 'bar',
+            'test': some_really_long_name_such_that_it_should_wrap(),
+          }" />
+        </template>
+
+        <script>
+        import collagraph as cg
+
+
+        class Test(cg.Component):
+            def some_really_long_name_such_that_it_should_wrap(self):
+                return 2
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected
+
+
+def test_format_multiline_dict_template_multi_attrs():
+    content = textwrap.dedent(
+        """
+        <template>
+          <wrapper>
+            <item :value="{'foo': 'foo','bar': 'bar','test':'some_really_long_name_such_that_it_should_wrap'}" :foo="foo" :bar="bar" />
+          </wrapper>
+        </template>
+
+        <script>
+        import collagraph as cg
+
+
+        class Item(cg.Component):
+            pass
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+    expected = textwrap.dedent(
+        """
+        <template>
+          <wrapper>
+            <item
+              :bar="bar"
+              :foo="foo"
+              :value="{
+                'foo': 'foo',
+                'bar': 'bar',
+                'test': 'some_really_long_name_such_that_it_should_wrap',
+              }"
+            />
+          </wrapper>
+        </template>
+
+        <script>
+        import collagraph as cg
+
+
+        class Item(cg.Component):
+            pass
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected

@@ -1,4 +1,5 @@
 import logging
+import textwrap
 
 from collagraph.sfc.parser import Comment, TextElement
 
@@ -156,7 +157,7 @@ def sort_attr(attr):
     return f"{len(SORTING)}{attr}"
 
 
-def format_attribute(key, value):
+def format_attribute(key, value, indent="", single_attribute=True):
     """
     Format an attribute key-value pair.
 
@@ -176,6 +177,9 @@ def format_attribute(key, value):
             return f'{key}="{formatted_value}"'
         else:
             formatted_value = format_python_expression(value)
+            formatted_value = textwrap.indent(
+                formatted_value, indent + ("" if single_attribute else INDENT)
+            ).lstrip()
             return f'{key}="{formatted_value}"'
 
     return f'{key}="{value}"'
@@ -194,12 +198,14 @@ def format_node(node, depth: int) -> list[str]:
         if node.attrs:
             if len(node.attrs) == 1:
                 key, val = next(iter(node.attrs.items()))
-                attr = format_attribute(key, val)
+                attr = format_attribute(key, val, indent, single_attribute=True)
                 start = f"{start} {attr}"
             else:
                 attrs = []
                 for key in sorted(node.attrs, key=sort_attr):
-                    attr = format_attribute(key, node.attrs[key])
+                    attr = format_attribute(
+                        key, node.attrs[key], indent, single_attribute=False
+                    )
                     attrs.append(f"{indent}{INDENT}{attr}")
 
                 start = "\n".join([start, *attrs])
