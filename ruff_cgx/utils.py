@@ -291,7 +291,8 @@ def run_ruff_format(
         if use_single_quotes:
             config_file = Path(directory) / "ruff.toml"
             config_file.write_text(
-                '[format]\nquote-style = "single"\n', encoding="utf-8"
+                'indent-width = 2\n[format]\nquote-style = "single"\n',
+                encoding="utf-8",
             )
             ruff_command.extend(["--config", str(config_file)])
 
