@@ -70,6 +70,6 @@ def test_run_ruff_check_with_custom_command():
     """Test that run_ruff_check uses custom ruff command."""
     set_ruff_command("ruff")
     source = "# Empty file\n"
-    result, _ = run_ruff_check(source)
+    result, _, _ = run_ruff_check(source)
     # Should succeed (exit code 0 for lint issues)
     assert result.returncode == 0

@@ -17,7 +17,9 @@ def main(argv=None):
     subcommand = parser.add_subparsers(dest="command")
 
     lint_parser = subcommand.add_parser("check")
-    lint_parser.add_argument("--fix", action="store_true")
+    lint_parser.add_argument(
+        "--fix", action="store_true", help="Apply fixes to resolve lint violations"
+    )
     lint_parser.add_argument(
         "path",
         nargs="*",
