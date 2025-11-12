@@ -216,7 +216,7 @@ def create_virtual_render_content(original_content: str, modified_content: str) 
         # Append a virtual subclass with the render method
         # This helps ruff see that template variables are used
         virtual_class_def = (
-            f"class Virtual{component_class_name}({component_class_name}):\n"
+            f"class CGXVirtual{component_class_name}({component_class_name}):\n"
         )
         # Add the render method with noqa to ignore issues in generated code
         virtual_class_content = "".join(
@@ -328,17 +328,19 @@ def run_ruff_format(
 
 
 def run_ruff_check(
-    source: str, output_format: str = "json"
-) -> tuple[subprocess.CompletedProcess, Path]:
+    source: str, output_format: str = "json", fix: bool = False
+) -> tuple[subprocess.CompletedProcess, Path, str | None]:
     """
     Run ruff check on Python source code.
 
     Args:
         source: The Python source code to check
         output_format: Output format for ruff (default: "json")
+        fix: Whether to apply fixes (default: False)
 
     Returns:
-        CompletedProcess with the ruff result
+        Tuple of (CompletedProcess with the ruff result, temp file path,
+        fixed content if fix=True else None)
     """
     with temp_py_file(source) as temp_path:
         ruff_command = [
@@ -347,15 +349,26 @@ def run_ruff_check(
             f"--output-format={output_format}",
             "--no-cache",
             "--ignore=RUF100",  # Ignore unused noqa (we add these for virtual render)
-            str(temp_path),
         ]
+
+        if fix:
+            ruff_command.append("--fix")
+
+        ruff_command.append(str(temp_path))
 
         env = os.environ.copy()
         env["CLICOLOR_FORCE"] = "1"
 
-        return subprocess.run(
+        result = subprocess.run(
             ruff_command, capture_output=True, text=True, env=env, timeout=30
-        ), temp_path
+        )
+
+        # If fix was requested, read back the fixed content
+        fixed_content = None
+        if fix:
+            fixed_content = temp_path.read_text(encoding="utf-8")
+
+        return result, temp_path, fixed_content
 
 
 @contextmanager
