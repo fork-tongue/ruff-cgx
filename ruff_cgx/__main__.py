@@ -52,8 +52,6 @@ def run_check_command(args):
                 print(format_diagnostic(diag, result["path"]))
 
     # Print summary
-    print()
-
     if args.fix:
         # Show "Found N error(s) (X fixed, Y remaining)."
         if total_diagnostics_before > 0:
