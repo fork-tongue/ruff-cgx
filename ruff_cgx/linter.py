@@ -60,6 +60,7 @@ def lint_file_data(path, fix=False):
         - path: Path object
         - was_fixed: bool (True if fixes were applied)
         - diagnostics: List[Diagnostic] (remaining issues)
+        - diagnostics_before_fix: List[Diagnostic] (issues before fix, if fix=True)
         - success: bool (True if no errors)
     """
     path = Path(path)
@@ -72,34 +73,45 @@ def lint_file_data(path, fix=False):
             "path": path,
             "was_fixed": False,
             "diagnostics": [],
+            "diagnostics_before_fix": [],
             "success": False,
         }
 
     virtual_content, parsed, script_content = virtual_content
 
-    # Run ruff check with JSON output to get structured diagnostics
+    # Parse initial diagnostics
+    diagnostics_before_fix = lint_cgx_content(content)
+
+    # If not fixing, just return the diagnostics
+    if not fix:
+        return {
+            "path": path,
+            "was_fixed": False,
+            "diagnostics": diagnostics_before_fix,
+            "diagnostics_before_fix": diagnostics_before_fix,
+            "success": len(diagnostics_before_fix) == 0,
+        }
+
+    # Run ruff check with fix
     result, temp_path, fixed_content = run_ruff_check(
         virtual_content, output_format="json", fix=fix
     )
 
-    # Parse diagnostics from JSON
-    diagnostics = lint_cgx_content(content) if not fix else []
-
-    # If we fixed, get remaining diagnostics by re-linting the fixed content
+    # Apply fixes if we got fixed content
     was_fixed = False
-    if fix and fixed_content:
-        # Apply fixes to file
+    if fixed_content:
         _apply_fixes_to_file(path, content, parsed, script_content, fixed_content)
         was_fixed = True
 
-        # Re-lint to get remaining diagnostics
-        fixed_file_content = path.read_text(encoding="utf-8")
-        diagnostics = lint_cgx_content(fixed_file_content)
+    # Re-lint to get remaining diagnostics
+    fixed_file_content = path.read_text(encoding="utf-8")
+    diagnostics = lint_cgx_content(fixed_file_content)
 
     return {
         "path": path,
         "was_fixed": was_fixed,
         "diagnostics": diagnostics,
+        "diagnostics_before_fix": diagnostics_before_fix,
         "success": len(diagnostics) == 0,
     }
 
@@ -137,6 +149,7 @@ class Diagnostic:
     message: str
     code: str
     severity: str  # 'error', 'warning', 'info'
+    fixable: bool = False  # Whether this diagnostic can be auto-fixed
     source: str = "ruff"
 
 
@@ -201,6 +214,9 @@ def _run_ruff(python_content: str) -> List[Diagnostic]:
         elif code.startswith("F"):
             severity = "error"
 
+        # Check if the diagnostic is fixable (has a "fix" field)
+        fixable = diag.get("fix") is not None
+
         diagnostics.append(
             Diagnostic(
                 line=line,
@@ -210,6 +226,7 @@ def _run_ruff(python_content: str) -> List[Diagnostic]:
                 message=diag.get("message", "Unknown error"),
                 code=code,
                 severity=severity,
+                fixable=fixable,
             )
         )
 

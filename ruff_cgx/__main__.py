@@ -37,10 +37,13 @@ def run_check_command(args):
     results = [lint_file_data(file_path, fix=args.fix) for file_path in files]
 
     # Count results
-    files_fixed = sum(1 for r in results if r["was_fixed"])
-    total_diagnostics = sum(len(r["diagnostics"]) for r in results)
+    total_diagnostics_remaining = sum(len(r["diagnostics"]) for r in results)
 
-    # Print diagnostics
+    # Count fixable diagnostics (before fix) and total diagnostics before fix
+    total_diagnostics_before = sum(len(r["diagnostics_before_fix"]) for r in results)
+    total_fixable = sum(sum(1 for d in r["diagnostics_before_fix"] if d.fixable) for r in results)
+
+    # Print diagnostics (remaining ones after fix, or all if not fixing)
     for result in results:
         if result["diagnostics"]:
             for diag in result["diagnostics"]:
@@ -48,22 +51,29 @@ def run_check_command(args):
 
     # Print summary
     print()
-    if args.fix and files_fixed > 0:
-        print(f"Fixed {files_fixed} file(s)")
 
-    if total_diagnostics > 0:
-        error_word = "error" if total_diagnostics == 1 else "errors"
-        print(f"Found {total_diagnostics} {error_word}.")
-        return 1
-    else:
-        if not args.fix:
-            print(f"All checks passed! ({len(files)} file(s) checked)")
+    if args.fix:
+        # Show "Found N error(s) (X fixed, Y remaining)."
+        if total_diagnostics_before > 0:
+            error_word = "error" if total_diagnostics_before == 1 else "errors"
+            fixed_count = total_diagnostics_before - total_diagnostics_remaining
+            print(f"Found {total_diagnostics_before} {error_word} ({fixed_count} fixed, {total_diagnostics_remaining} remaining).")
+            return 1 if total_diagnostics_remaining > 0 else 0
         else:
-            print(
-                f"All checks passed! ({len(files)} file(s) checked, "
-                f"{files_fixed} fixed)"
-            )
-        return 0
+            print(f"All checks passed! ({len(files)} file(s) checked)")
+            return 0
+    else:
+        # Show "N fixable with the `--fix` option." or "Found N error(s)."
+        if total_diagnostics_remaining > 0:
+            if total_fixable > 0:
+                print(f"{total_fixable} fixable with the `--fix` option.")
+            else:
+                error_word = "error" if total_diagnostics_remaining == 1 else "errors"
+                print(f"Found {total_diagnostics_remaining} {error_word}.")
+            return 1
+        else:
+            print(f"All checks passed! ({len(files)} file(s) checked)")
+            return 0
 
 
 def run_format_command(args):
