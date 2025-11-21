@@ -473,10 +473,12 @@ def run_ruff_check(
             # No diff means no fixes needed
             fixed_content = source
 
-        # For CLI usage (output_format="full"), run again to get diagnostic output
+        # For CLI usage (output_format="full"), run again on FIXED content
+        # to get remaining diagnostics (not the ones we just fixed)
         # LSP doesn't need this since it only uses the fixed content
         if output_format == "full":
             # Run again without --diff to get the full diagnostic output with colors
+            # IMPORTANT: Run on fixed_content, not original source
             env_with_color = env.copy()
             env_with_color["CLICOLOR_FORCE"] = "1"
 
@@ -492,7 +494,7 @@ def run_ruff_check(
             ]
             result = subprocess.run(
                 check_command,
-                input=source,
+                input=fixed_content,  # Run on fixed content, not original!
                 capture_output=True,
                 text=True,
                 env=env_with_color,

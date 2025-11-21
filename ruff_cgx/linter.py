@@ -47,9 +47,66 @@ def _prepare_content_for_linting(
     return virtual_content, parsed, script_content
 
 
+def lint_file_data(path, fix=False):
+    """
+    Lint a CGX file and return structured data.
+
+    Args:
+        path: Path to the CGX file
+        fix: Whether to fix issues (default: False)
+
+    Returns:
+        dict with:
+        - path: Path object
+        - was_fixed: bool (True if fixes were applied)
+        - diagnostics: List[Diagnostic] (remaining issues)
+        - success: bool (True if no errors)
+    """
+    path = Path(path)
+    content = path.read_text(encoding="utf-8")
+
+    # Prepare content for linting
+    virtual_content = _prepare_content_for_linting(content)
+    if virtual_content is None:
+        return {
+            "path": path,
+            "was_fixed": False,
+            "diagnostics": [],
+            "success": False,
+        }
+
+    virtual_content, parsed, script_content = virtual_content
+
+    # Run ruff check with JSON output to get structured diagnostics
+    result, temp_path, fixed_content = run_ruff_check(
+        virtual_content, output_format="json", fix=fix
+    )
+
+    # Parse diagnostics from JSON
+    diagnostics = lint_cgx_content(content) if not fix else []
+
+    # If we fixed, get remaining diagnostics by re-linting the fixed content
+    was_fixed = False
+    if fix and fixed_content:
+        # Apply fixes to file
+        _apply_fixes_to_file(path, content, parsed, script_content, fixed_content)
+        was_fixed = True
+
+        # Re-lint to get remaining diagnostics
+        fixed_file_content = path.read_text(encoding="utf-8")
+        diagnostics = lint_cgx_content(fixed_file_content)
+
+    return {
+        "path": path,
+        "was_fixed": was_fixed,
+        "diagnostics": diagnostics,
+        "success": len(diagnostics) == 0,
+    }
+
+
 def lint_file(path, fix=False, **_):
     """
-    Lint a CGX file using ruff (CLI version).
+    Lint a CGX file using ruff (CLI version - legacy interface).
 
     Args:
         path: Path to the CGX file
@@ -58,35 +115,15 @@ def lint_file(path, fix=False, **_):
     Returns:
         Exit code (0 for success, non-zero for errors)
     """
-    path = Path(path)
-    content = path.read_text(encoding="utf-8")
+    result = lint_file_data(path, fix=fix)
 
-    # Prepare content for linting
-    virtual_content = _prepare_content_for_linting(content)
-    if virtual_content is None:
-        return 1
+    # Format and print diagnostics
+    if result["diagnostics"]:
+        print(f"\n{result['path']}:")  # noqa: T201
+        for diag in result["diagnostics"]:
+            print(f"  {diag.line}:{diag.column} {diag.code} {diag.message}")  # noqa: T201
 
-    virtual_content, parsed, script_content = virtual_content
-
-    # Run ruff check with full output (for CLI)
-    result, temp_path, fixed_content = run_ruff_check(
-        virtual_content, output_format="full", fix=fix
-    )
-
-    # Replace temp file path with actual path in output
-    if temp_path:
-        # Using temp file (when fix=True)
-        stdout = result.stdout.replace(str(temp_path), str(path)).strip()
-    else:
-        # Using stdin (when fix=False) - replace stdin filename with actual path
-        stdout = result.stdout.replace("source.py", str(path)).strip()
-    print(stdout)  # noqa: T201
-
-    # If fix was requested and we got fixed content, apply it back to the file
-    if fix and fixed_content:
-        _apply_fixes_to_file(path, content, parsed, script_content, fixed_content)
-
-    return result.returncode
+    return 0 if result["success"] else 1
 
 
 @dataclass
