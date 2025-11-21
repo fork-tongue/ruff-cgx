@@ -30,41 +30,39 @@ def run_check_command(args):
     files = collect_files(args.path)
 
     if not files:
-        print("No .cgx files found")  # noqa: T201
+        print("No .cgx files found")
         return 0
 
     # Process all files
-    results = []
-    for file_path in files:
-        result = lint_file_data(file_path, fix=args.fix)
-        results.append(result)
+    results = [lint_file_data(file_path, fix=args.fix) for file_path in files]
 
     # Count results
     files_fixed = sum(1 for r in results if r["was_fixed"])
-    files_with_errors = sum(1 for r in results if not r["success"])
     total_diagnostics = sum(len(r["diagnostics"]) for r in results)
 
     # Print diagnostics
     for result in results:
         if result["diagnostics"]:
             for diag in result["diagnostics"]:
-                print(format_diagnostic(diag, result["path"]))  # noqa: T201
+                print(format_diagnostic(diag, result["path"]))
 
     # Print summary
-    print()  # noqa: T201
-    if args.fix:
-        if files_fixed > 0:
-            print(f"Fixed {files_fixed} file(s)")  # noqa: T201
+    print()
+    if args.fix and files_fixed > 0:
+        print(f"Fixed {files_fixed} file(s)")
 
     if total_diagnostics > 0:
         error_word = "error" if total_diagnostics == 1 else "errors"
-        print(f"Found {total_diagnostics} {error_word}.")  # noqa: T201
+        print(f"Found {total_diagnostics} {error_word}.")
         return 1
     else:
         if not args.fix:
-            print(f"All checks passed! ({len(files)} file(s) checked)")  # noqa: T201
+            print(f"All checks passed! ({len(files)} file(s) checked)")
         else:
-            print(f"All checks passed! ({len(files)} file(s) checked, {files_fixed} fixed)")  # noqa: T201
+            print(
+                f"All checks passed! ({len(files)} file(s) checked, "
+                f"{files_fixed} fixed)"
+            )
         return 0
 
 
@@ -73,24 +71,23 @@ def run_format_command(args):
     files = collect_files(args.path)
 
     if not files:
-        print("No .cgx files found")  # noqa: T201
+        print("No .cgx files found")
         return 0
 
     # Process all files
-    results = []
-    for file_path in files:
-        result = format_file_data(file_path, check=args.check, write=True)
-        results.append(result)
+    results = [
+        format_file_data(file_path, check=args.check, write=True) for file_path in files
+    ]
 
     # Count results
     files_changed = sum(1 for r in results if r["changed"])
-    files_unchanged = sum(1 for r in results if not r["changed"])
+    files_unchanged = len(results) - files_changed
 
     # For --check mode, print which files would be reformatted
     if args.check:
         for result in results:
             if result["changed"]:
-                print(f"Would reformat: {result['path']}")  # noqa: T201
+                print(f"Would reformat: {result['path']}")
 
     # Print summary
     if args.check:
@@ -100,13 +97,16 @@ def run_format_command(args):
             formatted_word = "file" if files_unchanged == 1 else "files"
 
             if files_unchanged > 0:
-                print(f"{files_changed} {would_word} be reformatted, {files_unchanged} {formatted_word} already formatted")  # noqa: T201
+                print(
+                    f"{files_changed} {would_word} be reformatted, "
+                    f"{files_unchanged} {formatted_word} already formatted"
+                )
             else:
-                print(f"{files_changed} {would_word} be reformatted")  # noqa: T201
+                print(f"{files_changed} {would_word} be reformatted")
             return 1
         else:
             formatted_word = "file" if files_unchanged == 1 else "files"
-            print(f"{files_unchanged} {formatted_word} already formatted")  # noqa: T201
+            print(f"{files_unchanged} {formatted_word} already formatted")
             return 0
     else:
         # Normal format mode summary
@@ -114,11 +114,14 @@ def run_format_command(args):
         unchanged_word = "file" if files_unchanged == 1 else "files"
 
         if files_changed > 0 and files_unchanged > 0:
-            print(f"{files_changed} {reformatted_word} reformatted, {files_unchanged} {unchanged_word} left unchanged")  # noqa: T201
+            print(
+                f"{files_changed} {reformatted_word} reformatted, "
+                f"{files_unchanged} {unchanged_word} left unchanged"
+            )
         elif files_changed > 0:
-            print(f"{files_changed} {reformatted_word} reformatted")  # noqa: T201
+            print(f"{files_changed} {reformatted_word} reformatted")
         else:
-            print(f"{files_unchanged} {unchanged_word} left unchanged")  # noqa: T201
+            print(f"{files_unchanged} {unchanged_word} left unchanged")
 
         return 0
 
@@ -160,10 +163,11 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
 
-    if args.command == "check":
-        code = run_check_command(args)
-    else:  # format
-        code = run_format_command(args)
+    match args.command:
+        case "check":
+            code = run_check_command(args)
+        case "format":
+            code = run_format_command(args)
 
     if code:
         exit(code)
