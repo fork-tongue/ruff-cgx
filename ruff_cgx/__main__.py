@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ruff_cgx.formatter import format_file_data
+from ruff_cgx.formatter import format_file
 from ruff_cgx.linter import lint_file_data
 
 
@@ -75,9 +75,7 @@ def run_format_command(args):
         return 0
 
     # Process all files
-    results = [
-        format_file_data(file_path, check=args.check, write=True) for file_path in files
-    ]
+    results = [format_file(file_path, check=args.check) for file_path in files]
 
     # Count results
     files_changed = sum(1 for r in results if r["changed"])

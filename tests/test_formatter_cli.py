@@ -1,16 +1,27 @@
+import shutil
 import textwrap
 
 import pytest
 
-from ruff_cgx import format_file
 from ruff_cgx.__main__ import main
 
 
-def test_check(capsys, data_path):
-    simple_cgx = data_path / "simple.cgx"
+@pytest.fixture
+def tmp_copy_from_data(data_path, tmp_path):
+    def copy_temp_cgx(name):
+        source = data_path / name
+        target = tmp_path / name
+        shutil.copyfile(source, target)
+        return target
+
+    return copy_temp_cgx
+
+
+def test_check(capsys, tmp_copy_from_data):
+    tmp_cgx = tmp_copy_from_data("simple.cgx")
 
     with pytest.raises(SystemExit) as e:
-        main(["format", "--check", str(simple_cgx)])
+        main(["format", "--check", str(tmp_cgx)])
 
     stdout = capsys.readouterr().out
 
@@ -19,10 +30,10 @@ def test_check(capsys, data_path):
     assert "simple.cgx" in stdout, stdout
 
 
-def test_check_already_formatted(capsys, data_path):
-    simple_cgx = data_path / "simple_formatted.cgx"
+def test_check_already_formatted(capsys, tmp_copy_from_data):
+    tmp_cgx = tmp_copy_from_data("simple_formatted.cgx")
 
-    main(["format", "--check", str(simple_cgx)])
+    main(["format", "--check", str(tmp_cgx)])
 
     stdout = capsys.readouterr().out
 
@@ -31,10 +42,13 @@ def test_check_already_formatted(capsys, data_path):
     assert "1 file already formatted" in stdout, stdout
 
 
-def test_format_template(capsys, data_path):
-    template_cgx = data_path / "template.cgx"
+def test_format_template(capsys, tmp_copy_from_data):
+    tmp_cgx = tmp_copy_from_data("template.cgx")
 
-    lines = format_file(template_cgx, write=False)
+    main(["format", str(tmp_cgx)])
+
+    stdout = capsys.readouterr().out
+    formatted = tmp_cgx.read_text()
 
     expected = textwrap.dedent(
         """\
@@ -100,21 +114,21 @@ def test_format_template(capsys, data_path):
             </script>
         """
     )
-    assert "".join(lines) == expected
-
-    stdout = capsys.readouterr().out
-
+    assert formatted == expected
     assert "1 file reformatted" in stdout, stdout
 
 
-def test_works_with_no_template(capsys, data_path):
+def test_works_with_no_template(capsys, tmp_copy_from_data):
     """
     Also checks that a newline will be added at the end
     of the file.
     """
-    template_cgx = data_path / "no_template.cgx"
+    tmp_cgx = tmp_copy_from_data("no_template.cgx")
 
-    lines = format_file(template_cgx, write=False)
+    main(["format", str(tmp_cgx)])
+
+    stdout = capsys.readouterr().out
+    formatted = tmp_cgx.read_text()
 
     expected = textwrap.dedent(
         """
@@ -129,20 +143,21 @@ def test_works_with_no_template(capsys, data_path):
             </script>
         """
     ).lstrip()
-    assert "".join(lines) == expected
 
-    stdout = capsys.readouterr().out
-
+    assert formatted == expected
     assert "1 file reformatted" in stdout, stdout
 
 
-def test_works_with_no_template_elaborate(capsys, data_path):
+def test_works_with_no_template_elaborate(capsys, tmp_copy_from_data):
     """
     Also checks that whitespace between root nodes is preserved.
     """
-    template_cgx = data_path / "no_template_elaborate.cgx"
+    tmp_cgx = tmp_copy_from_data("no_template_elaborate.cgx")
 
-    lines = format_file(template_cgx, write=False)
+    main(["format", str(tmp_cgx)])
+
+    stdout = capsys.readouterr().out
+    formatted = tmp_cgx.read_text()
 
     expected = textwrap.dedent(
         """
@@ -161,8 +176,6 @@ def test_works_with_no_template_elaborate(capsys, data_path):
             </other-node>
         """
     ).lstrip()
-    assert "".join(lines) == expected
 
-    stdout = capsys.readouterr().out
-
+    assert formatted == expected
     assert "1 file reformatted" in stdout, stdout
