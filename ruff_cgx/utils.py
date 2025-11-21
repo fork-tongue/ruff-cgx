@@ -4,9 +4,7 @@ import ast
 import os
 import re
 import subprocess
-import tempfile
 import textwrap
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
@@ -277,60 +275,159 @@ def run_ruff_format(
     Returns:
         Formatted Python source code
     """
-    ruff_command = [get_ruff_command(), "format"]
-    if check:
-        ruff_command.append("--check")
-
     should_sort_imports = is_isort_configured()
 
-    with tempfile.TemporaryDirectory() as directory:
-        target_file = Path(directory) / "source.py"
-        target_file.write_text(source, encoding="utf-8")
+    # Enable color output for format operations
+    env = os.environ.copy()
+    env["CLICOLOR_FORCE"] = "1"
 
-        # Create config if single quotes requested
-        if use_single_quotes:
-            config_file = Path(directory) / "ruff.toml"
-            config_file.write_text(
-                'indent-width = 2\n[format]\nquote-style = "single"\n',
-                encoding="utf-8",
-            )
-            ruff_command.extend(["--config", str(config_file)])
+    current_source = source
 
-        ruff_command.append(str(target_file))
+    # If isort is configured, sort imports first using --diff approach
+    if should_sort_imports:
+        # Run ruff check with --diff to get import sorting changes
+        # Disable color for diff output
+        env_no_color = os.environ.copy()
 
-        # Enable color output
-        env = os.environ.copy()
-        env["CLICOLOR_FORCE"] = "1"
+        isort_command = [
+            get_ruff_command(),
+            "check",
+            "--select",
+            "I",
+            "--diff",
+            "--no-cache",
+            "--stdin-filename",
+            "source.py",
+            "-",
+        ]
 
-        # Run ruff
-        if should_sort_imports:
-            # Sort imports with: ruff check --select I --fix .
-            result = subprocess.run(
-                [
-                    get_ruff_command(),
-                    "check",
-                    "--select",
-                    "I",
-                    "--fix",
-                    str(target_file),
-                ],
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-        # Then do the formatting
-        result = subprocess.run(ruff_command, capture_output=True, text=True, env=env)
+        isort_result = subprocess.run(
+            isort_command,
+            input=current_source,
+            capture_output=True,
+            text=True,
+            env=env_no_color,
+            timeout=30,
+        )
 
-        if result.returncode == 0 or not check:
-            return target_file.read_text(encoding="utf-8")
+        # Apply the diff if there are any import sorting changes
+        if isort_result.stdout.strip():
+            try:
+                current_source = apply_unified_diff(current_source, isort_result.stdout)
+            except Exception:
+                # If diff application fails, continue with original
+                pass
+
+    # Use stdin approach for formatting
+    ruff_command = [get_ruff_command(), "format", "--stdin-filename", "source.py"]
+    if check:
+        ruff_command.append("--check")
+    if use_single_quotes:
+        # Use inline config instead of temp file
+        ruff_command.extend(["--config", "indent-width=2"])
+        ruff_command.extend(["--config", 'format.quote-style="single"'])
+    ruff_command.append("-")
+
+    result = subprocess.run(
+        ruff_command,
+        input=current_source,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    if result.returncode == 0:
+        return result.stdout
+    else:
+        # If check mode and would change, return original
+        return source
+
+
+def apply_unified_diff(original: str, diff: str) -> str:
+    """
+    Apply a unified diff to source code.
+
+    Args:
+        original: The original source code
+        diff: The unified diff output from ruff
+
+    Returns:
+        The patched source code
+
+    Raises:
+        ValueError: If the diff cannot be applied
+    """
+    if not diff.strip():
+        return original
+
+    # Strip ANSI color codes from diff output
+    import re
+
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    diff = ansi_escape.sub("", diff)
+
+    original_lines = original.splitlines(keepends=True)
+    result_lines = []
+
+    diff_lines = diff.splitlines()
+    i = 0
+
+    # Skip the header lines (---, +++, and any "Would fix" messages)
+    while i < len(diff_lines):
+        line = diff_lines[i]
+        if line.startswith("@@"):
+            break
+        i += 1
+
+    # Track current position in original
+    original_idx = 0
+
+    while i < len(diff_lines):
+        line = diff_lines[i]
+
+        if line.startswith("@@"):
+            # Parse hunk header: @@ -start,count +start,count @@
+            parts = line.split()
+            if len(parts) >= 3:
+                # Extract old start position (1-indexed)
+                old_start = int(parts[1].split(",")[0][1:])
+                # Add unchanged lines up to this hunk
+                while original_idx < old_start - 1:
+                    result_lines.append(original_lines[original_idx])
+                    original_idx += 1
+            i += 1
+
+        elif line.startswith("-"):
+            # Line removed - skip it in original
+            original_idx += 1
+            i += 1
+
+        elif line.startswith("+"):
+            # Line added - add to result
+            result_lines.append(line[1:] + "\n")
+            i += 1
+
+        elif line.startswith(" "):
+            # Context line - copy from original
+            result_lines.append(original_lines[original_idx])
+            original_idx += 1
+            i += 1
+
         else:
-            # If check mode and would change, return original
-            return source
+            # End of hunk or unknown line
+            i += 1
+
+    # Add remaining original lines
+    while original_idx < len(original_lines):
+        result_lines.append(original_lines[original_idx])
+        original_idx += 1
+
+    return "".join(result_lines)
 
 
 def run_ruff_check(
     source: str, output_format: str = "json", fix: bool = False
-) -> tuple[subprocess.CompletedProcess, Path, str | None]:
+) -> tuple[subprocess.CompletedProcess, Path | None, str | None]:
     """
     Run ruff check on Python source code.
 
@@ -340,61 +437,97 @@ def run_ruff_check(
         fix: Whether to apply fixes (default: False)
 
     Returns:
-        Tuple of (CompletedProcess with the ruff result, temp file path,
+        Tuple of (CompletedProcess with the ruff result, temp file path or None,
         fixed content if fix=True else None)
     """
-    with temp_py_file(source) as temp_path:
+    env = os.environ.copy()
+
+    # Use stdin approach with --diff for better performance
+    if fix:
+        # Use --diff to get unified diff output, then apply it
+        # Note: We don't set CLICOLOR_FORCE for diff mode to avoid ANSI codes
         ruff_command = [
             get_ruff_command(),
             "check",
-            f"--output-format={output_format}",
+            "--diff",
             "--no-cache",
             "--ignore=RUF100",  # Ignore unused noqa (we add these for virtual render)
+            "--stdin-filename",
+            "source.py",
+            "-",
         ]
 
-        if fix:
-            ruff_command.append("--fix")
-
-        ruff_command.append(str(temp_path))
-
-        env = os.environ.copy()
-        env["CLICOLOR_FORCE"] = "1"
-
         result = subprocess.run(
-            ruff_command, capture_output=True, text=True, env=env, timeout=30
+            ruff_command,
+            input=source,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
         )
 
-        # If fix was requested, read back the fixed content
-        fixed_content = None
-        if fix:
-            fixed_content = temp_path.read_text(encoding="utf-8")
+        # Apply the diff to get fixed content
+        # Note: diff output is in stdout, stderr contains "Would fix N errors" message
+        diff_output = result.stdout
+        if diff_output.strip():
+            try:
+                fixed_content = apply_unified_diff(source, diff_output)
+            except Exception:
+                # If diff application fails, fall back to original
+                fixed_content = source
+        else:
+            # No diff means no fixes needed
+            fixed_content = source
 
-        return result, temp_path, fixed_content
+        # For compatibility, we need to adjust the result for the CLI output
+        # When output_format is "full", we need to convert diff to full format
+        if output_format == "full":
+            # Run again without --diff to get the full diagnostic output with colors
+            env_with_color = env.copy()
+            env_with_color["CLICOLOR_FORCE"] = "1"
 
+            check_command = [
+                get_ruff_command(),
+                "check",
+                "--output-format=full",
+                "--no-cache",
+                "--ignore=RUF100",
+                "--stdin-filename",
+                "source.py",
+                "-",
+            ]
+            result = subprocess.run(
+                check_command,
+                input=source,
+                capture_output=True,
+                text=True,
+                env=env_with_color,
+                timeout=30,
+            )
 
-@contextmanager
-def temp_py_file(content: str):
-    """
-    Create a temporary Python file with the given content.
+        return result, None, fixed_content
 
-    Args:
-        content: The Python code to write to the file
+    # Check-only mode (no fix) - enable colors for better CLI experience
+    env["CLICOLOR_FORCE"] = "1"
 
-    Yields:
-        Path to the temporary file
+    ruff_command = [
+        get_ruff_command(),
+        "check",
+        f"--output-format={output_format}",
+        "--no-cache",
+        "--ignore=RUF100",  # Ignore unused noqa (we add these for virtual render)
+        "--stdin-filename",
+        "source.py",
+        "-",
+    ]
 
-    Example:
-        with temp_py_file("print('hello')") as path:
-            result = subprocess.run(['python', str(path)])
-    """
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(content)
-        temp_path = Path(f.name)
+    result = subprocess.run(
+        ruff_command,
+        input=source,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
 
-    try:
-        yield temp_path
-    finally:
-        try:
-            temp_path.unlink()
-        except Exception:
-            pass
+    return result, None, None

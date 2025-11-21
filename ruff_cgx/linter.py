@@ -74,7 +74,12 @@ def lint_file(path, fix=False, **_):
     )
 
     # Replace temp file path with actual path in output
-    stdout = result.stdout.replace(str(temp_path), str(path)).strip()
+    if temp_path:
+        # Using temp file (when fix=True)
+        stdout = result.stdout.replace(str(temp_path), str(path)).strip()
+    else:
+        # Using stdin (when fix=False) - replace stdin filename with actual path
+        stdout = result.stdout.replace("source.py", str(path)).strip()
     print(stdout)  # noqa: T201
 
     # If fix was requested and we got fixed content, apply it back to the file
