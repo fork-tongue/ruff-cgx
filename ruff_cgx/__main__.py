@@ -51,6 +51,10 @@ def run_check_command(args):
             for diag in result["diagnostics"]:
                 print(format_diagnostic(diag, result["path"]))
 
+    # Empty line between diagnostics and summary
+    if total_diagnostics_remaining > 0:
+        print()
+
     # Print summary
     if args.fix:
         # Show "Found N error(s) (X fixed, Y remaining)."

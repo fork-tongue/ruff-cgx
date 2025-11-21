@@ -14,7 +14,7 @@ def test_check_command(capsys, tmp_copy_from_data):
     assert e.value.code == 1
 
     assert (
-        f"{simple_cgx}:72:27: F401 `PySide6.QtGui.QAction` imported but unused\n"
+        f"{simple_cgx}:72:27: F401 `PySide6.QtGui.QAction` imported but unused\n\n"
         "Found 1 error.\n" == captured.out
     )
 
@@ -29,7 +29,7 @@ def test_check_fixable_command(capsys, tmp_copy_from_data):
     captured = capsys.readouterr()
 
     assert (
-        f"{simple_cgx}:6:1: I001 Import block is un-sorted or un-formatted\n"
+        f"{simple_cgx}:6:1: I001 Import block is un-sorted or un-formatted\n\n"
         "1 fixable with the `--fix` option.\n" == captured.out
     )
 
