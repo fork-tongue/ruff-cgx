@@ -45,3 +45,6 @@ unfixable = [
     "F401",  # Unused import
     "F841",  # Unused variable
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"ruff_cgx/__main__.py" = ["T201"]
