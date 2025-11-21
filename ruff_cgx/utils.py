@@ -360,12 +360,6 @@ def apply_unified_diff(original: str, diff: str) -> str:
     if not diff.strip():
         return original
 
-    # Strip ANSI color codes from diff output
-    import re
-
-    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
-    diff = ansi_escape.sub("", diff)
-
     original_lines = original.splitlines(keepends=True)
     result_lines = []
 
@@ -479,8 +473,8 @@ def run_ruff_check(
             # No diff means no fixes needed
             fixed_content = source
 
-        # For compatibility, we need to adjust the result for the CLI output
-        # When output_format is "full", we need to convert diff to full format
+        # For CLI usage (output_format="full"), run again to get diagnostic output
+        # LSP doesn't need this since it only uses the fixed content
         if output_format == "full":
             # Run again without --diff to get the full diagnostic output with colors
             env_with_color = env.copy()

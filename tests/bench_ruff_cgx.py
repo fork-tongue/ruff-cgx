@@ -140,8 +140,8 @@ class TestLintBenchmarks:
 class TestLintFileBenchmarks:
     """Benchmarks for lint file operations with fix."""
 
-    def test_lint_file_with_fix(self, benchmark):
-        """Benchmark linting and fixing a file."""
+    def test_lint_file_with_fix_cli(self, benchmark):
+        """Benchmark linting and fixing a file (CLI usage with full output)."""
 
         def setup():
             # Create temp file
