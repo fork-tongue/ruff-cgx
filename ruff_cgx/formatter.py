@@ -56,50 +56,72 @@ def format_script(script_node, check=False):
     return formatted_lines, (script_content.start_line, replacement_end)
 
 
-def format_file(path: str | Path, check: bool = False, write: bool = True) -> int | str:
+def format_file_data(path: str | Path, check: bool = False, write: bool = True):
     """
-    Format CGX files (the contents of the script tag) with ruff.
+    Format a CGX file and return structured data.
 
     Args:
-        content: The CGX file content as a string
-        uri: Optional URI for logging purposes
+        path: Path to the CGX file
+        check: If True, only check without modifying
+        write: If True, write changes to disk
+
+    Returns:
+        dict with:
+        - path: Path object
+        - changed: bool (True if formatting would change/changed the file)
+        - formatted_content: str (the formatted content if write=False)
+        - success: bool (True if no errors)
+    """
+    path = Path(path)
+    if path.suffix != ".cgx":
+        return {
+            "path": path,
+            "changed": False,
+            "formatted_content": None,
+            "success": False,
+        }
+
+    content = path.read_text(encoding="utf-8")
+    formatted_content = format_cgx_content(content, str(path))
+    changed = content != formatted_content
+
+    if changed and not check and write:
+        with path.open(mode="w", encoding="utf-8") as fh:
+            fh.write(formatted_content)
+
+    return {
+        "path": path,
+        "changed": changed,
+        "formatted_content": formatted_content if not write else None,
+        "success": True,
+    }
+
+
+def format_file(path: str | Path, check: bool = False, write: bool = True) -> int | str:
+    """
+    Format CGX files (legacy interface for tests).
+
+    Args:
+        path: Path to the CGX file
+        check: If True, only check without modifying
+        write: If True, write changes to disk
 
     Returns:
         0 if everything succeeded, or nothing changed.
         1 when running check and something would change.
-        list of lines when write is set to False instead
-        of an error code (used for the test-suite).
+        formatted content when write is set to False.
     """
-    path = Path(path)
-    if path.suffix != ".cgx":
-        return 1
-
-    content = path.read_text(encoding="utf-8")
-
-    formatted_content = format_cgx_content(content, str(path))
-
-    changed = content != formatted_content
-    if check:
-        if changed:
-            print(f"Would reformat: {path}")  # noqa: T201
-            return 1
-        print("1 file already formatted")  # noqa: T201
-        return 0
-
-    # Print status message based on changes
-    if changed:
-        print("1 file reformatted")  # noqa: T201
-    else:
-        print("1 file left unchanged")  # noqa: T201
+    result = format_file_data(path, check=check, write=write)
 
     if not write:
-        return formatted_content
+        # Print status for backward compatibility with tests
+        if result["changed"]:
+            print("1 file reformatted")  # noqa: T201
+        else:
+            print("1 file left unchanged")  # noqa: T201
+        return result["formatted_content"]
 
-    if changed:
-        with path.open(mode="w", encoding="utf-8") as fh:
-            fh.write(formatted_content)
-
-    return 0
+    return 1 if (check and result["changed"]) else 0
 
 
 def format_cgx_content(content: str, uri: str = "") -> str:
