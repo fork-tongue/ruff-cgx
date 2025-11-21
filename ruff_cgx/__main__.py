@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ruff_cgx.formatter import format_file
-from ruff_cgx.linter import lint_file_data
+from ruff_cgx.linter import lint_file
 
 
 def collect_files(paths):
@@ -34,7 +34,7 @@ def run_check_command(args):
         return 0
 
     # Process all files
-    results = [lint_file_data(file_path, fix=args.fix) for file_path in files]
+    results = [lint_file(file_path, fix=args.fix) for file_path in files]
 
     # Count results
     total_diagnostics_remaining = sum(len(r["diagnostics"]) for r in results)

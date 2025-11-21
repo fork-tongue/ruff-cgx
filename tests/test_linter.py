@@ -1,7 +1,5 @@
 """Tests for linting and diagnostics."""
 
-import tempfile
-from pathlib import Path
 from textwrap import dedent
 
 from ruff_cgx import lint_cgx_content, lint_file
@@ -181,7 +179,7 @@ def test_lint_unused_import():
     assert "QAction" in diagnostic.message
 
 
-def test_lint_file_with_fix():
+def test_lint_file_with_fix(tmp_path):
     """Test that lint_file with fix=True applies auto-fixable issues."""
     content = dedent(
         """
@@ -201,48 +199,41 @@ def test_lint_file_with_fix():
     ).strip()
 
     # Create a temporary file
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".cgx", delete=False, encoding="utf-8"
-    ) as f:
-        f.write(content)
-        temp_path = Path(f.name)
+    temp_path = tmp_path / "file.cgx"
+    temp_path.write_text(content, encoding="utf-8")
 
-    try:
-        # First check that we have fixable issues (unsorted imports)
-        diagnostics = lint_cgx_content(content)
-        assert len(diagnostics) == 2, diagnostics
-        assert [diag.code for diag in diagnostics] == ["I001", "F401"]
-        # Check that we have the I001 import sorting diagnostic
-        i001_diags = [d for d in diagnostics if d.code == "I001"]
-        assert len(i001_diags) == 1, f"Expected I001 diagnostic, got: {diagnostics}"
+    # First check that we have fixable issues (unsorted imports)
+    diagnostics = lint_cgx_content(content)
+    assert len(diagnostics) == 2, diagnostics
+    assert [diag.code for diag in diagnostics] == ["I001", "F401"]
+    # Check that we have the I001 import sorting diagnostic
+    i001_diags = [d for d in diagnostics if d.code == "I001"]
+    assert len(i001_diags) == 1, f"Expected I001 diagnostic, got: {diagnostics}"
 
-        # Run lint_file with fix=True
-        lint_file(temp_path, fix=True)
+    # Run lint_file with fix=True
+    lint_file(temp_path, fix=True)
 
-        # Read the file back
-        fixed_content = temp_path.read_text(encoding="utf-8")
+    # Read the file back
+    fixed_content = temp_path.read_text(encoding="utf-8")
 
-        # The imports should now be sorted (import before from)
-        script_section = fixed_content.split("<script>")[1].split("</script>")[0]
-        import_sys_pos = script_section.find("import sys")
-        from_collagraph_pos = script_section.find("from collagraph")
+    # The imports should now be sorted (import before from)
+    script_section = fixed_content.split("<script>")[1].split("</script>")[0]
+    import_sys_pos = script_section.find("import sys")
+    from_collagraph_pos = script_section.find("from collagraph")
 
-        assert import_sys_pos < from_collagraph_pos, (
-            "Expected imports to be sorted (import before from), "
-            f"but got:\n{script_section}"
-        )
+    assert import_sys_pos < from_collagraph_pos, (
+        "Expected imports to be sorted (import before from), "
+        f"but got:\n{script_section}"
+    )
 
-        # Both imports should still be there
-        assert "import sys" in fixed_content
-        assert "from collagraph import Component" in fixed_content
-        assert '<label :text="message"></label>' in fixed_content
+    # Both imports should still be there
+    assert "import sys" in fixed_content
+    assert "from collagraph import Component" in fixed_content
+    assert '<label :text="message"></label>' in fixed_content
 
-        # Verify the I001 diagnostic is gone
-        diagnostics_after = lint_cgx_content(fixed_content)
-        i001_after = [d for d in diagnostics_after if d.code == "I001"]
-        assert len(i001_after) == 0, (
-            f"Expected I001 to be fixed, but still present: {i001_after}"
-        )
-    finally:
-        # Clean up
-        temp_path.unlink()
+    # Verify the I001 diagnostic is gone
+    diagnostics_after = lint_cgx_content(fixed_content)
+    i001_after = [d for d in diagnostics_after if d.code == "I001"]
+    assert len(i001_after) == 0, (
+        f"Expected I001 to be fixed, but still present: {i001_after}"
+    )

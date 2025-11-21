@@ -47,7 +47,7 @@ def _prepare_content_for_linting(
     return virtual_content, parsed, script_content
 
 
-def lint_file_data(path, fix=False):
+def lint_file(path, fix=False):
     """
     Lint a CGX file and return structured data.
 
@@ -112,28 +112,6 @@ def lint_file_data(path, fix=False):
         "diagnostics_before_fix": diagnostics_before_fix,
         "success": len(diagnostics) == 0,
     }
-
-
-def lint_file(path, fix=False, **_):
-    """
-    Lint a CGX file using ruff (CLI version - legacy interface).
-
-    Args:
-        path: Path to the CGX file
-        fix: Whether to fix issues (default: False)
-
-    Returns:
-        Exit code (0 for success, non-zero for errors)
-    """
-    result = lint_file_data(path, fix=fix)
-
-    # Format and print diagnostics
-    if result["diagnostics"]:
-        print(f"\n{result['path']}:")  # noqa: T201
-        for diag in result["diagnostics"]:
-            print(f"  {diag.line}:{diag.column} {diag.code} {diag.message}")  # noqa: T201
-
-    return 0 if result["success"] else 1
 
 
 @dataclass
