@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ruff_cgx import format_file
+from ruff_cgx.formatter import format_file_data
 from ruff_cgx.linter import lint_file_data
 
 
@@ -68,6 +68,61 @@ def run_check_command(args):
         return 0
 
 
+def run_format_command(args):
+    """Run the format command with batch processing and summary output."""
+    files = collect_files(args.path)
+
+    if not files:
+        print("No .cgx files found")  # noqa: T201
+        return 0
+
+    # Process all files
+    results = []
+    for file_path in files:
+        result = format_file_data(file_path, check=args.check, write=True)
+        results.append(result)
+
+    # Count results
+    files_changed = sum(1 for r in results if r["changed"])
+    files_unchanged = sum(1 for r in results if not r["changed"])
+
+    # For --check mode, print which files would be reformatted
+    if args.check:
+        for result in results:
+            if result["changed"]:
+                print(f"Would reformat: {result['path']}")  # noqa: T201
+
+    # Print summary
+    if args.check:
+        # --check mode summary
+        if files_changed > 0:
+            would_word = "file would" if files_changed == 1 else "files would"
+            formatted_word = "file" if files_unchanged == 1 else "files"
+
+            if files_unchanged > 0:
+                print(f"{files_changed} {would_word} be reformatted, {files_unchanged} {formatted_word} already formatted")  # noqa: T201
+            else:
+                print(f"{files_changed} {would_word} be reformatted")  # noqa: T201
+            return 1
+        else:
+            formatted_word = "file" if files_unchanged == 1 else "files"
+            print(f"{files_unchanged} {formatted_word} already formatted")  # noqa: T201
+            return 0
+    else:
+        # Normal format mode summary
+        reformatted_word = "file" if files_changed == 1 else "files"
+        unchanged_word = "file" if files_unchanged == 1 else "files"
+
+        if files_changed > 0 and files_unchanged > 0:
+            print(f"{files_changed} {reformatted_word} reformatted, {files_unchanged} {unchanged_word} left unchanged")  # noqa: T201
+        elif files_changed > 0:
+            print(f"{files_changed} {reformatted_word} reformatted")  # noqa: T201
+        else:
+            print(f"{files_unchanged} {unchanged_word} left unchanged")  # noqa: T201
+
+        return 0
+
+
 def main(argv=None):
     import argparse
     import sys
@@ -108,21 +163,7 @@ def main(argv=None):
     if args.command == "check":
         code = run_check_command(args)
     else:  # format
-        method = format_file
-        method_arguments = {
-            k: v for k, v in vars(args).items() if k not in {"command", "path"}
-        }
-
-        code = 0
-        for path in args.path:
-            if not path.exists():
-                pass
-
-            if path.is_file():
-                code |= method(path, **method_arguments)
-            else:
-                for file in path.glob("**/*.cgx"):
-                    code |= method(file, **method_arguments)
+        code = run_format_command(args)
 
     if code:
         exit(code)
