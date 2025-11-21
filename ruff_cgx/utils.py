@@ -329,14 +329,13 @@ def run_ruff_format(
 
 
 def run_ruff_check(
-    source: str, output_format: str = "json", fix: bool = False
-) -> tuple[subprocess.CompletedProcess, Path, str | None]:
+    source: str, fix: bool = False
+) -> tuple[subprocess.CompletedProcess, str | None]:
     """
     Run ruff check on Python source code.
 
     Args:
         source: The Python source code to check
-        output_format: Output format for ruff (default: "json")
         fix: Whether to apply fixes (default: False)
 
     Returns:
@@ -347,7 +346,7 @@ def run_ruff_check(
         ruff_command = [
             get_ruff_command(),
             "check",
-            f"--output-format={output_format}",
+            "--output-format=json",
             "--no-cache",
             "--ignore=RUF100",  # Ignore unused noqa (we add these for virtual render)
         ]
@@ -369,7 +368,7 @@ def run_ruff_check(
         if fix:
             fixed_content = temp_path.read_text(encoding="utf-8")
 
-        return result, temp_path, fixed_content
+        return result, fixed_content
 
 
 @contextmanager

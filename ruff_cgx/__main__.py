@@ -41,7 +41,9 @@ def run_check_command(args):
 
     # Count fixable diagnostics (before fix) and total diagnostics before fix
     total_diagnostics_before = sum(len(r["diagnostics_before_fix"]) for r in results)
-    total_fixable = sum(sum(1 for d in r["diagnostics_before_fix"] if d.fixable) for r in results)
+    total_fixable = sum(
+        sum(1 for d in r["diagnostics_before_fix"] if d.fixable) for r in results
+    )
 
     # Print diagnostics (remaining ones after fix, or all if not fixing)
     for result in results:
@@ -57,7 +59,10 @@ def run_check_command(args):
         if total_diagnostics_before > 0:
             error_word = "error" if total_diagnostics_before == 1 else "errors"
             fixed_count = total_diagnostics_before - total_diagnostics_remaining
-            print(f"Found {total_diagnostics_before} {error_word} ({fixed_count} fixed, {total_diagnostics_remaining} remaining).")
+            print(
+                f"Found {total_diagnostics_before} {error_word} ({fixed_count} fixed, "
+                f"{total_diagnostics_remaining} remaining)."
+            )
             return 1 if total_diagnostics_remaining > 0 else 0
         else:
             print(f"All checks passed! ({len(files)} file(s) checked)")

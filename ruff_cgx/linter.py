@@ -93,9 +93,7 @@ def lint_file_data(path, fix=False):
         }
 
     # Run ruff check with fix
-    result, temp_path, fixed_content = run_ruff_check(
-        virtual_content, output_format="json", fix=fix
-    )
+    _, fixed_content = run_ruff_check(virtual_content, fix=fix)
 
     # Apply fixes if we got fixed content
     was_fixed = False
@@ -188,7 +186,7 @@ def _run_ruff(python_content: str) -> List[Diagnostic]:
         List of diagnostics
     """
     # Run ruff check with JSON output
-    result, _, _ = run_ruff_check(python_content, output_format="json")
+    result, _ = run_ruff_check(python_content)
     if not result.stdout:
         return []
 
