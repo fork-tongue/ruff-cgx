@@ -95,6 +95,202 @@ COMPLEX_CGX = dedent(
     """
 ).strip()
 
+# Very complex CGX with multiline dicts, many directives, and many elements
+VERY_COMPLEX_CGX = dedent(
+    """
+    <template>
+        <div :class="container_class" :style="container_style">
+            <nav v-if="show_navigation" :config="{'theme': 'dark', 'sticky': True, 'offset': 10}">
+                <div>
+                    <a v-for="link in nav_links" :href="link.url" :class="link.active_class" @click="handle_nav_click">
+                        <span :text="link.label"></span>
+                        <span v-if="link.badge" :text="link.badge" class="badge"></span>
+                    </a>
+                </div>
+            </nav>
+            <header :style="{'background': header_bg, 'padding': header_padding}">
+                <div>
+                    <h1 :text="page_title" :id="title_id"></h1>
+                    <p v-if="subtitle" :text="subtitle"></p>
+                    <div v-if="show_actions">
+                        <button @click="handle_refresh" :disabled="is_loading" :class="refresh_btn_class">
+                            <span v-if="is_loading">Loading...</span>
+                            <span v-else>Refresh</span>
+                        </button>
+                        <button @click="handle_export" :class="export_btn_class">Export</button>
+                    </div>
+                </div>
+            </header>
+            <aside v-if="show_sidebar" :config="{'width': sidebar_width, 'collapsible': True, 'position': 'left'}">
+                <div>
+                    <h3 :text="sidebar_title"></h3>
+                    <ul>
+                        <li v-for="item in sidebar_items" :key="item.id" :class="item.class_name">
+                            <span :text="item.label"></span>
+                            <span v-if="item.count" :text="item.count" class="count"></span>
+                        </li>
+                    </ul>
+                </div>
+            </aside>
+            <main :style="{'min-height': min_content_height, 'padding': content_padding}">
+                <section v-if="error_message">
+                    <div class="error" :text="error_message"></div>
+                </section>
+                <section v-else-if="is_loading">
+                    <div class="spinner"></div>
+                    <p>Loading data...</p>
+                </section>
+                <section v-else>
+                    <div v-for="section in content_sections" :id="section.id" :class="section.class_name">
+                        <h2 :text="section.title"></h2>
+                        <p v-if="section.description" :text="section.description"></p>
+                        <div v-if="section.items" class="items-grid">
+                            <article v-for="item in section.items" :key="item.id" :data-id="item.id" :class="{'featured': item.featured, 'new': item.is_new}" @click="handle_item_click">
+                                <div class="item-header">
+                                    <h4 :text="item.title"></h4>
+                                    <span v-if="item.badge" :text="item.badge" :class="item.badge_class"></span>
+                                </div>
+                                <div class="item-body">
+                                    <p :text="item.description"></p>
+                                    <div v-if="item.metadata" class="metadata">
+                                        <span v-if="item.metadata.author" :text="item.metadata.author"></span>
+                                        <span v-if="item.metadata.date" :text="item.metadata.date"></span>
+                                        <span v-if="item.metadata.category" :text="item.metadata.category"></span>
+                                    </div>
+                                </div>
+                                <div class="item-footer">
+                                    <button @click="handle_view" :data-id="item.id">View</button>
+                                    <button v-if="item.can_edit" @click="handle_edit" :data-id="item.id">Edit</button>
+                                    <button v-if="item.can_delete" @click="handle_delete" :data-id="item.id" class="danger">Delete</button>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+            </main>
+            <footer :style="{'background': footer_bg, 'padding': footer_padding, 'margin-top': footer_margin}">
+                <div>
+                    <div class="footer-links">
+                        <a v-for="link in footer_links" :href="link.url" :text="link.label" @click="handle_footer_click"></a>
+                    </div>
+                    <div class="footer-info">
+                        <p :text="copyright_text"></p>
+                        <p v-if="version_info" :text="version_info"></p>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </template>
+
+    <script>
+    from typing import List, Dict, Any, Optional
+    from collagraph import Component
+
+    class DashboardComponent(Component):
+        def init(self):
+            self.show_navigation = True
+            self.show_sidebar = True
+            self.show_actions = True
+            self.is_loading = False
+            self.error_message: Optional[str] = None
+            self.page_title = "Dashboard"
+            self.subtitle = "Welcome to your dashboard"
+            self.nav_links: List[Dict[str, Any]] = []
+            self.sidebar_items: List[Dict[str, Any]] = []
+            self.content_sections: List[Dict[str, Any]] = []
+            self.footer_links: List[Dict[str, str]] = []
+
+        @property
+        def container_class(self) -> str:
+            return "container" if not self.is_loading else "container loading"
+
+        @property
+        def container_style(self) -> Dict[str, str]:
+            return {"max-width": "1200px", "margin": "0 auto"}
+
+        @property
+        def header_bg(self) -> str:
+            return "#f5f5f5"
+
+        @property
+        def header_padding(self) -> str:
+            return "20px"
+
+        @property
+        def sidebar_width(self) -> str:
+            return "250px"
+
+        @property
+        def sidebar_title(self) -> str:
+            return "Filters"
+
+        @property
+        def min_content_height(self) -> str:
+            return "600px"
+
+        @property
+        def content_padding(self) -> str:
+            return "20px"
+
+        @property
+        def footer_bg(self) -> str:
+            return "#333"
+
+        @property
+        def footer_padding(self) -> str:
+            return "20px"
+
+        @property
+        def footer_margin(self) -> str:
+            return "40px"
+
+        @property
+        def copyright_text(self) -> str:
+            return "© 2025 My Company"
+
+        @property
+        def version_info(self) -> str:
+            return "Version 1.0.0"
+
+        @property
+        def title_id(self) -> str:
+            return "page-title"
+
+        @property
+        def refresh_btn_class(self) -> str:
+            return "btn btn-primary" if not self.is_loading else "btn btn-primary disabled"
+
+        @property
+        def export_btn_class(self) -> str:
+            return "btn btn-secondary"
+
+        def handle_nav_click(self):
+            pass
+
+        def handle_refresh(self):
+            self.is_loading = True
+
+        def handle_export(self):
+            pass
+
+        def handle_item_click(self):
+            pass
+
+        def handle_view(self):
+            pass
+
+        def handle_edit(self):
+            pass
+
+        def handle_delete(self):
+            pass
+
+        def handle_footer_click(self):
+            pass
+    </script>
+    """
+).strip()
+
 
 class TestFormatBenchmarks:
     """Benchmarks for format operations."""
@@ -114,6 +310,11 @@ class TestFormatBenchmarks:
         result = benchmark(format_cgx_content, COMPLEX_CGX)
         assert result is not None
 
+    def test_format_very_complex_cgx(self, benchmark):
+        """Benchmark formatting a very complex CGX file with many elements and directives."""
+        result = benchmark(format_cgx_content, VERY_COMPLEX_CGX)
+        assert result is not None
+
 
 class TestLintBenchmarks:
     """Benchmarks for lint operations."""
@@ -131,6 +332,11 @@ class TestLintBenchmarks:
     def test_lint_complex_cgx(self, benchmark):
         """Benchmark linting a complex CGX file."""
         result = benchmark(lint_cgx_content, COMPLEX_CGX)
+        assert isinstance(result, list)
+
+    def test_lint_very_complex_cgx(self, benchmark):
+        """Benchmark linting a very complex CGX file with many elements and directives."""
+        result = benchmark(lint_cgx_content, VERY_COMPLEX_CGX)
         assert isinstance(result, list)
 
 
