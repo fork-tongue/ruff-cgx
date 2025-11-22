@@ -19,6 +19,7 @@ ruff-cgx = "ruff_cgx.__main__:main"
 [dependency-groups]
 dev = [
     "pytest",
+    "pytest-benchmark",
 ]
 ruff = [
     "ruff"
@@ -45,3 +46,10 @@ unfixable = [
     "F401",  # Unused import
     "F841",  # Unused variable
 ]
+
+
+[tool.ruff.lint.per-file-ignores]
+"benchmarks/benchmark.py" = ["E501"]
+
+[tool.pytest.ini_options]
+addopts = "--benchmark-columns='mean, stddev, rounds'"
