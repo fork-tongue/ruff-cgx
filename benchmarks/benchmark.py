@@ -365,5 +365,6 @@ class TestLintFileBenchmarks:
         result = benchmark.pedantic(
             lint_file, setup=setup, teardown=teardown, rounds=20, iterations=1
         )
-        # lint_file returns exit code
-        assert result in (0, 1)
+        # lint_file returns a dict with diagnostics and metadata
+        assert isinstance(result, dict)
+        assert "diagnostics" in result
