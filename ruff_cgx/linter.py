@@ -92,22 +92,24 @@ def lint_file(path, fix=False):
             "success": len(diagnostics_before_fix) == 0,
         }
 
+    assert fix is True
     # Run ruff check with fix
     _, fixed_content = run_ruff_check(virtual_content, fix=fix)
+    assert fixed_content
 
     # Apply fixes if we got fixed content
-    was_fixed = False
-    if fixed_content:
-        _apply_fixes_to_file(path, content, parsed, script_content, fixed_content)
-        was_fixed = True
+    fixed_file_content = _apply_fixes_to_file(
+        path, content, parsed, script_content, fixed_content
+    )
 
     # Re-lint to get remaining diagnostics
-    fixed_file_content = path.read_text(encoding="utf-8")
+    # Simply filtering the diagnostics from before the fix won't
+    # work, since line numbers / columns might have changed
     diagnostics = lint_cgx_content(fixed_file_content)
 
     return {
         "path": path,
-        "was_fixed": was_fixed,
+        "was_fixed": fixed_file_content != content,
         "diagnostics": diagnostics,
         "diagnostics_before_fix": diagnostics_before_fix,
         "success": len(diagnostics) == 0,
@@ -256,7 +258,7 @@ def _apply_fixes_to_file(
     parsed: ParsedCGX,
     script_content: ScriptContent,
     fixed_content: str,
-) -> None:
+) -> str:
     """
     Apply the fixed Python code back to the original CGX file.
 
@@ -299,3 +301,5 @@ def _apply_fixes_to_file(
         new_content += "\n"
 
     path.write_text(new_content, encoding="utf-8")
+
+    return new_content
