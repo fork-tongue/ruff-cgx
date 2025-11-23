@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
+
 from ruff_cgx import format_cgx_content, lint_cgx_content
 from ruff_cgx.linter import lint_file
 
@@ -292,6 +294,7 @@ VERY_COMPLEX_CGX = dedent(
 ).strip()
 
 
+@pytest.mark.benchmark(group="format")
 class TestFormatBenchmarks:
     """Benchmarks for format operations."""
 
@@ -316,6 +319,7 @@ class TestFormatBenchmarks:
         assert result is not None
 
 
+@pytest.mark.benchmark(group="lint")
 class TestLintBenchmarks:
     """Benchmarks for lint operations."""
 
@@ -340,11 +344,12 @@ class TestLintBenchmarks:
         assert isinstance(result, list)
 
 
+@pytest.mark.benchmark(group="lint+fix")
 class TestLintFileBenchmarks:
     """Benchmarks for lint file operations with fix."""
 
-    def test_lint_file_with_fix_cli(self, benchmark):
-        """Benchmark linting and fixing a file (CLI usage with full output)."""
+    def test_lint_file_with_fix(self, benchmark):
+        """Benchmark linting and fixing a file."""
 
         def setup():
             # Create temp file
