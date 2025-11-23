@@ -41,7 +41,7 @@ jobs:
           uv run --no-sync pytest benchmarks/benchmark.py \
             --benchmark-only \
             --benchmark-autosave \
-            --benchmark-sort=name
+            --benchmark-sort=mean
 
       # On master: cache the new baseline results
       - name: Save benchmark baseline
@@ -65,5 +65,5 @@ jobs:
               --benchmark-only \
               --benchmark-compare \
               --benchmark-compare-fail=mean:5% \
-              --benchmark-sort=name
+              --benchmark-sort=mean
 
