@@ -29,12 +29,131 @@ OTHER_ATTR = SORTING.index({"v-bind", ":"})
 UNIQUE_ATTR = SORTING.index({"id", "ref", "key"})
 
 
-def format_python_expression(expr: str) -> str:
+def collect_expressions(node) -> list[str]:
+    """
+    Collect all Python expressions from a template node tree.
+
+    Returns a list of expressions that need formatting.
+    """
+    expressions = []
+
+    def _collect_from_node(n):
+        # Skip text and comments
+        if isinstance(n, (Comment, TextElement)):
+            return
+
+        # Collect expressions from attributes
+        if attributes := getattr(n, "attrs"):
+            for key, value in attributes.items():
+                if (
+                    key.startswith((":", "@", "v-"))
+                    and isinstance(value, str)
+                    and value.strip()
+                ):
+                    if key.startswith("v-for"):
+                        # Split v-for into target and iterable
+                        expr = value.strip()
+                        parts = expr.split(" in ", 1)
+                        if len(parts) == 2:
+                            expressions.append(parts[0].strip())
+                            expressions.append(parts[1].strip())
+                    else:
+                        expressions.append(value.strip())
+
+        # Recurse into children
+        if children := getattr(n, "children"):
+            for child in children:
+                _collect_from_node(child)
+
+    _collect_from_node(node)
+    return expressions
+
+
+def batch_format_expressions(expressions: list[str]) -> dict[str, str]:
+    """
+    Format multiple Python expressions in a single ruff call.
+
+    Args:
+        expressions: List of Python expressions to format
+
+    Returns:
+        Dictionary mapping original expression to formatted expression
+    """
+    if not expressions:
+        return {}
+
+    # Filter out empty expressions
+    non_empty = [e for e in expressions if e and e.strip()]
+    if not non_empty:
+        return {}
+
+    try:
+        # Create a batch of assignments
+        lines = []
+        for i, expr in enumerate(non_empty):
+            lines.append(f"__e{i}__ = {expr}")
+        batch_source = "\n".join(lines)
+
+        # Format all at once
+        formatted_batch = run_ruff_format(
+            batch_source, use_single_quotes=True, skip_import_sort=True
+        )
+
+        # Parse the results - need to handle multiline expressions
+        result_map = {}
+        formatted_lines = formatted_batch.strip().split("\n")
+
+        for i, expr in enumerate(non_empty):
+            # Find the formatted expression for this variable
+            prefix = f"__e{i}__ = "
+
+            # Find the start line
+            start_idx = None
+            for idx, line in enumerate(formatted_lines):
+                if line.startswith(prefix):
+                    start_idx = idx
+                    break
+
+            if start_idx is None:
+                continue
+
+            # Find the end line: next line that starts with __e (next assignment)
+            end_idx = len(formatted_lines)
+            for idx in range(start_idx + 1, len(formatted_lines)):
+                line = formatted_lines[idx]
+                if line.startswith("__e") and " = " in line:
+                    end_idx = idx
+                    break
+
+            # Extract the expression (everything after "variable = ")
+            first_line = formatted_lines[start_idx][len(prefix) :]
+            if start_idx + 1 < end_idx:
+                # Multiline expression
+                remaining_lines = formatted_lines[start_idx + 1 : end_idx]
+                formatted_expr = first_line + "\n" + "\n".join(remaining_lines)
+            else:
+                # Single line expression
+                formatted_expr = first_line
+
+            result_map[expr] = formatted_expr
+
+        return result_map
+
+    except Exception as e:
+        logger.debug(f"Batch formatting failed: {e}")
+        # Return empty dict - will fall back to individual formatting
+        return {}
+
+
+def format_python_expression(
+    expr: str, expression_cache: dict[str, str] | None = None
+) -> str:
     """
     Format a Python expression using ruff with single quotes.
 
     Args:
         expr: The Python expression as a string
+        expression_cache: Optional cache of pre-formatted expressions
 
     Returns:
         Formatted expression as a string (using single quotes)
@@ -42,17 +161,21 @@ def format_python_expression(expr: str) -> str:
     if not expr or not expr.strip():
         return expr
 
+    # Check cache first
+    if expression_cache is not None and expr in expression_cache:
+        return expression_cache[expr]
+
     try:
+        prefix = "__dummy__ = "
         # Wrap the expression in a dummy assignment to make it valid Python
         # This allows ruff to format it properly
-        wrapped = f"__dummy__ = {expr}"
+        wrapped = f"{prefix}{expr}"
 
         # Format with ruff using single quotes
         formatted = run_ruff_format(wrapped, use_single_quotes=True)
 
         # Extract the expression back out
         # (remove "__dummy__ = " and trailing newline)
-        prefix = "__dummy__ = "
         if formatted.startswith(prefix):
             formatted_expr = formatted[len(prefix) :].rstrip("\n")
             return formatted_expr
@@ -65,7 +188,9 @@ def format_python_expression(expr: str) -> str:
         return expr
 
 
-def format_list_expression(expr: str) -> str:
+def format_list_expression(
+    expr: str, expression_cache: dict[str, str] | None = None
+) -> str:
     """
     Format a Python list expression (v-for syntax) using ruff with single quotes.
 
@@ -74,6 +199,7 @@ def format_list_expression(expr: str) -> str:
 
     Args:
         expr: The list expression as a string (e.g., "item in items")
+        expression_cache: Optional cache of pre-formatted expressions
 
     Returns:
         Formatted expression as a string (using single quotes)
@@ -96,8 +222,10 @@ def format_list_expression(expr: str) -> str:
         target, iterable = parts
 
         # Format each part using format_python_expression
-        formatted_target = format_python_expression(target.strip())
-        formatted_iterable = format_python_expression(iterable.strip())
+        formatted_target = format_python_expression(target.strip(), expression_cache)
+        formatted_iterable = format_python_expression(
+            iterable.strip(), expression_cache
+        )
 
         return f"{formatted_target} in {formatted_iterable}"
 
@@ -108,12 +236,20 @@ def format_list_expression(expr: str) -> str:
 
 def format_template(template_node) -> tuple[list[str], tuple[int, int]]:
     """
-    Returns formatted node and the original location of the template node
+    Returns formatted node and the original location of the template node.
+
+    Uses batch formatting for all Python expressions to improve performance.
     """
     # Find beginning and end of script block
     start, end = template_node.location[0] - 1, template_node.end[0]
 
-    result = format_node(template_node, depth=0)
+    # Collect all expressions and batch format them
+    expressions = collect_expressions(template_node)
+    expression_cache = batch_format_expressions(expressions) if expressions else None
+
+    # Format the node tree using the cached expressions
+    result = format_node(template_node, depth=0, expression_cache=expression_cache)
+
     # Replace all tabs with the default indent and add line breaks
     tab = "\t"
     result = [f"{line.replace(tab, INDENT)}\n" for line in result]
@@ -157,7 +293,9 @@ def sort_attr(attr):
     return f"{len(SORTING)}{attr}"
 
 
-def format_attribute(key, value, indent="", single_attribute=True):
+def format_attribute(
+    key, value, indent="", single_attribute=True, expression_cache=None
+):
     """
     Format an attribute key-value pair.
 
@@ -173,10 +311,10 @@ def format_attribute(key, value, indent="", single_attribute=True):
     if key.startswith((":", "@", "v-")) and isinstance(value, str) and value.strip():
         value = value.strip()
         if key.startswith("v-for"):
-            formatted_value = format_list_expression(value)
+            formatted_value = format_list_expression(value, expression_cache)
             return f'{key}="{formatted_value}"'
         else:
-            formatted_value = format_python_expression(value)
+            formatted_value = format_python_expression(value, expression_cache)
             formatted_value = textwrap.indent(
                 formatted_value, indent + ("" if single_attribute else INDENT)
             ).lstrip()
@@ -185,7 +323,7 @@ def format_attribute(key, value, indent="", single_attribute=True):
     return f'{key}="{value}"'
 
 
-def format_node(node, depth: int) -> list[str]:
+def format_node(node, depth: int, expression_cache=None) -> list[str]:
     result = []
     indent = depth * INDENT
 
@@ -198,13 +336,23 @@ def format_node(node, depth: int) -> list[str]:
         if node.attrs:
             if len(node.attrs) == 1:
                 key, val = next(iter(node.attrs.items()))
-                attr = format_attribute(key, val, indent, single_attribute=True)
+                attr = format_attribute(
+                    key,
+                    val,
+                    indent,
+                    single_attribute=True,
+                    expression_cache=expression_cache,
+                )
                 start = f"{start} {attr}"
             else:
                 attrs = []
                 for key in sorted(node.attrs, key=sort_attr):
                     attr = format_attribute(
-                        key, node.attrs[key], indent, single_attribute=False
+                        key,
+                        node.attrs[key],
+                        indent,
+                        single_attribute=False,
+                        expression_cache=expression_cache,
                     )
                     attrs.append(f"{indent}{INDENT}{attr}")
 
@@ -225,7 +373,7 @@ def format_node(node, depth: int) -> list[str]:
 
     if hasattr(node, "children"):
         for child in node.children:
-            result.extend(format_node(child, depth + 1))
+            result.extend(format_node(child, depth + 1, expression_cache))
 
         if node.children:
             result.append(f"{indent}</{node.tag}>")
