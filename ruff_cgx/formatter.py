@@ -56,50 +56,43 @@ def format_script(script_node, check=False):
     return formatted_lines, (script_content.start_line, replacement_end)
 
 
-def format_file(path: str | Path, check: bool = False, write: bool = True) -> int | str:
+def format_file(path: str | Path, check: bool = False):
     """
-    Format CGX files (the contents of the script tag) with ruff.
+    Format a CGX file and return structured data.
 
     Args:
-        content: The CGX file content as a string
-        uri: Optional URI for logging purposes
+        path: Path to the CGX file
+        check: If True, only check without modifying
+        write: If True, write changes to disk
 
     Returns:
-        0 if everything succeeded, or nothing changed.
-        1 when running check and something would change.
-        list of lines when write is set to False instead
-        of an error code (used for the test-suite).
+        dict with:
+        - path: Path object
+        - changed: bool (True if formatting would change/changed the file)
+        - formatted_content: str (the formatted content if write=False)
+        - success: bool (True if no errors)
     """
     path = Path(path)
     if path.suffix != ".cgx":
-        return 1
+        return {
+            "path": path,
+            "changed": False,
+            "success": False,
+        }
 
     content = path.read_text(encoding="utf-8")
-
     formatted_content = format_cgx_content(content, str(path))
-
     changed = content != formatted_content
-    if check:
-        if changed:
-            print(f"Would reformat: {path}")  # noqa: T201
-            return 1
-        print("1 file already formatted")  # noqa: T201
-        return 0
 
-    # Print status message based on changes
-    if changed:
-        print("1 file reformatted")  # noqa: T201
-    else:
-        print("1 file left unchanged")  # noqa: T201
-
-    if not write:
-        return formatted_content
-
-    if changed:
+    if changed and not check:
         with path.open(mode="w", encoding="utf-8") as fh:
             fh.write(formatted_content)
 
-    return 0
+    return {
+        "path": path,
+        "changed": changed,
+        "success": True,
+    }
 
 
 def format_cgx_content(content: str, uri: str = "") -> str:
