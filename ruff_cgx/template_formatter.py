@@ -172,7 +172,10 @@ def format_python_expression(
         wrapped = f"{prefix}{expr}"
 
         # Format with ruff using single quotes
-        formatted = run_ruff_format(wrapped, use_single_quotes=True)
+        # Skip import sorting since template expressions don't have imports
+        formatted = run_ruff_format(
+            wrapped, use_single_quotes=True, skip_import_sort=True
+        )
 
         # Extract the expression back out
         # (remove "__dummy__ = " and trailing newline)
