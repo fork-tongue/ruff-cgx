@@ -162,7 +162,7 @@ def main(argv=None):
         "path",
         nargs="*",
         type=Path,
-        # default=[Path(".")],
+        default=[Path(".")],
         help="path(s) of files and/or folders to check",
     )
 
@@ -172,7 +172,7 @@ def main(argv=None):
         "path",
         nargs="*",
         type=Path,
-        # default=[Path(".")],
+        default=[Path(".")],
         help="path(s) of files and/or folders to format",
     )
 
