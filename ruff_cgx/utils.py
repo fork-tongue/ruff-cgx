@@ -276,10 +276,6 @@ def run_ruff_format(
     """
     should_sort_imports = is_isort_configured()
 
-    # Enable color output
-    env = os.environ.copy()
-    env["CLICOLOR_FORCE"] = "1"
-
     # Sort imports first if configured
     if should_sort_imports:
         import_sort_command = [
@@ -296,7 +292,6 @@ def run_ruff_format(
             input=source,
             capture_output=True,
             text=True,
-            env=env,
         )
         # Use the fixed output if available, otherwise use original
         if result.returncode == 0 or result.stdout:
@@ -330,7 +325,6 @@ def run_ruff_format(
         input=source,
         capture_output=True,
         text=True,
-        env=env,
     )
 
     if result.returncode == 0 or not check:
@@ -368,15 +362,11 @@ def run_ruff_check(
     if fix:
         ruff_command.append("--fix")
 
-    env = os.environ.copy()
-    env["CLICOLOR_FORCE"] = "1"
-
     result = subprocess.run(
         ruff_command,
         input=source,
         capture_output=True,
         text=True,
-        env=env,
         timeout=30,
     )
 
