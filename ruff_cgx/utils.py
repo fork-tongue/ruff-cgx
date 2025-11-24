@@ -14,6 +14,9 @@ from collagraph.sfc.parser import CGXParser, Element
 # Module-level configuration for ruff command
 _ruff_command: str | None = None
 
+# Module-level cache for isort configuration
+_isort_configured_cache: bool | None = None
+
 
 def set_ruff_command(command: str) -> None:
     """
@@ -229,7 +232,17 @@ def create_virtual_render_content(original_content: str, modified_content: str) 
 
 
 def is_isort_configured() -> bool:
-    """Check if 'unsorted-imports' is both enabled and marked as should_fix."""
+    """
+    Check if 'unsorted-imports' is both enabled and marked as should_fix.
+
+    Result is cached for the lifetime of the process to avoid repeated subprocess calls.
+    """
+    global _isort_configured_cache
+
+    # Return cached result if available
+    if _isort_configured_cache is not None:
+        return _isort_configured_cache
+
     result = False
     try:
         # Print ruff settings
@@ -247,21 +260,27 @@ def is_isort_configured() -> bool:
         )
 
         if not enabled_match or not should_fix_match:
-            return False
-
-        # Check that 'unsorted-imports' rule appears in both sections
-        in_enabled = "unsorted-imports" in enabled_match.group(1)
-        in_should_fix = "unsorted-imports" in should_fix_match.group(1)
-
-        return in_enabled and in_should_fix
+            result = False
+        else:
+            # Check that 'unsorted-imports' rule appears in both sections
+            in_enabled = "unsorted-imports" in enabled_match.group(1)
+            in_should_fix = "unsorted-imports" in should_fix_match.group(1)
+            result = in_enabled and in_should_fix
 
     except Exception:
-        pass
+        result = False
+
+    # Cache the result
+    _isort_configured_cache = result
     return result
 
 
 def run_ruff_format(
-    source: str, *, use_single_quotes: bool = False, check: bool = False
+    source: str,
+    *,
+    use_single_quotes: bool = False,
+    check: bool = False,
+    skip_import_sort: bool = False,
 ) -> str:
     """
     Format Python source code using ruff via stdin.
@@ -270,11 +289,12 @@ def run_ruff_format(
         source: The Python source code to format
         use_single_quotes: If True, configure ruff to use single quotes
         check: If True, only check without modifying
+        skip_import_sort: If True, skip import sorting (useful for template expressions)
 
     Returns:
         Formatted Python source code
     """
-    should_sort_imports = is_isort_configured()
+    should_sort_imports = not skip_import_sort and is_isort_configured()
 
     # Sort imports first if configured
     if should_sort_imports:
