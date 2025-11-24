@@ -33,10 +33,10 @@ jobs:
           path: .benchmarks
           key: benchmark-baseline-3.14-${{ runner.os }}-${{ github.run_number }}
           restore-keys: |
-            benchmark-baseline-3.14-${{ runner.os }}-
+            benchmark-baseline-3.14-${{ runner.os }}
 
       # On master: save baseline results
-      - name: Run benchmarks and save baseline
+      - name: Run benchmarks and save new baseline
         if: github.ref == 'refs/heads/master'
         continue-on-error: true
         run: |
@@ -44,6 +44,13 @@ jobs:
             --benchmark-only \
             --benchmark-autosave \
             --benchmark-sort=mean
+
+          LAST_BENCHMARK=$(uv run pytest-benchmark list | tail -1)
+          cp $LAST_BENCHMARK benchmark.json
+          # Clear out all benchmarks
+          rm -f .benchmarks/*/*.json
+          # Restore just the last benchmark
+          cp benchmark.json $LAST_BENCHMARK
 
       # On master: cache the new baseline results
       - name: Save benchmark baseline
