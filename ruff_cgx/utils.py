@@ -4,11 +4,8 @@ import ast
 import os
 import re
 import subprocess
-import tempfile
 import textwrap
-from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
 from typing import List
 
 from collagraph.sfc.compiler import construct_ast
@@ -267,7 +264,7 @@ def run_ruff_format(
     source: str, *, use_single_quotes: bool = False, check: bool = False
 ) -> str:
     """
-    Format Python source code using ruff.
+    Format Python source code using ruff via stdin.
 
     Args:
         source: The Python source code to format
@@ -277,123 +274,105 @@ def run_ruff_format(
     Returns:
         Formatted Python source code
     """
-    ruff_command = [get_ruff_command(), "format"]
+    should_sort_imports = is_isort_configured()
+
+    # Sort imports first if configured
+    if should_sort_imports:
+        import_sort_command = [
+            get_ruff_command(),
+            "check",
+            "--select",
+            "I",
+            "--fix",
+            "--stdin-filename",
+            "source.py",
+        ]
+        result = subprocess.run(
+            import_sort_command,
+            input=source,
+            capture_output=True,
+            text=True,
+        )
+        # Use the fixed output if available, otherwise use original
+        if result.returncode == 0 or result.stdout:
+            source = result.stdout if result.stdout else source
+
+    # Build format command
+    ruff_command = [
+        get_ruff_command(),
+        "format",
+        "--stdin-filename",
+        "source.py",
+    ]
+
     if check:
         ruff_command.append("--check")
 
-    should_sort_imports = is_isort_configured()
+    # Configure quote style and indent width via inline TOML config
+    if use_single_quotes:
+        ruff_command.extend(
+            [
+                "--config",
+                "format.quote-style = 'single'",
+                "--config",
+                "indent-width = 2",
+            ]
+        )
 
-    with tempfile.TemporaryDirectory() as directory:
-        target_file = Path(directory) / "source.py"
-        target_file.write_text(source, encoding="utf-8")
+    # Run ruff format with stdin
+    result = subprocess.run(
+        ruff_command,
+        input=source,
+        capture_output=True,
+        text=True,
+    )
 
-        # Create config if single quotes requested
-        if use_single_quotes:
-            config_file = Path(directory) / "ruff.toml"
-            config_file.write_text(
-                'indent-width = 2\n[format]\nquote-style = "single"\n',
-                encoding="utf-8",
-            )
-            ruff_command.extend(["--config", str(config_file)])
-
-        ruff_command.append(str(target_file))
-
-        # Enable color output
-        env = os.environ.copy()
-        env["CLICOLOR_FORCE"] = "1"
-
-        # Run ruff
-        if should_sort_imports:
-            # Sort imports with: ruff check --select I --fix .
-            result = subprocess.run(
-                [
-                    get_ruff_command(),
-                    "check",
-                    "--select",
-                    "I",
-                    "--fix",
-                    str(target_file),
-                ],
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-        # Then do the formatting
-        result = subprocess.run(ruff_command, capture_output=True, text=True, env=env)
-
-        if result.returncode == 0 or not check:
-            return target_file.read_text(encoding="utf-8")
-        else:
-            # If check mode and would change, return original
-            return source
+    if result.returncode == 0 or not check:
+        # Format succeeded or not in check mode
+        return result.stdout if result.stdout else source
+    else:
+        # If check mode and would change, return original
+        return source
 
 
 def run_ruff_check(
     source: str, fix: bool = False
 ) -> tuple[subprocess.CompletedProcess, str | None]:
     """
-    Run ruff check on Python source code.
+    Run ruff check on Python source code via stdin.
 
     Args:
         source: The Python source code to check
         fix: Whether to apply fixes (default: False)
 
     Returns:
-        Tuple of (CompletedProcess with the ruff result, temp file path,
+        Tuple of (CompletedProcess with the ruff result,
         fixed content if fix=True else None)
     """
-    with temp_py_file(source) as temp_path:
-        ruff_command = [
-            get_ruff_command(),
-            "check",
-            "--output-format=json",
-            "--no-cache",
-            "--ignore=RUF100",  # Ignore unused noqa (we add these for virtual render)
-        ]
+    ruff_command = [
+        get_ruff_command(),
+        "check",
+        "--output-format=json",
+        "--no-cache",
+        "--ignore=RUF100",  # Ignore unused noqa (we add these for virtual render)
+        "--stdin-filename",
+        "source.py",
+    ]
 
-        if fix:
-            ruff_command.append("--fix")
+    if fix:
+        ruff_command.append("--fix")
 
-        ruff_command.append(str(temp_path))
+    result = subprocess.run(
+        ruff_command,
+        input=source,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
 
-        env = os.environ.copy()
-        env["CLICOLOR_FORCE"] = "1"
+    # If fix was requested, the fixed content is in stdout
+    fixed_content = None
+    if fix and result.stdout:
+        fixed_content = result.stdout
 
-        result = subprocess.run(
-            ruff_command, capture_output=True, text=True, env=env, timeout=30
-        )
-
-        # If fix was requested, read back the fixed content
-        fixed_content = None
-        if fix:
-            fixed_content = temp_path.read_text(encoding="utf-8")
-
-        return result, fixed_content
-
-
-@contextmanager
-def temp_py_file(content: str):
-    """
-    Create a temporary Python file with the given content.
-
-    Args:
-        content: The Python code to write to the file
-
-    Yields:
-        Path to the temporary file
-
-    Example:
-        with temp_py_file("print('hello')") as path:
-            result = subprocess.run(['python', str(path)])
-    """
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(content)
-        temp_path = Path(f.name)
-
-    try:
-        yield temp_path
-    finally:
-        try:
-            temp_path.unlink()
-        except Exception:
-            pass
+    return result, fixed_content
