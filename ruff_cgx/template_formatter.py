@@ -89,9 +89,7 @@ def batch_format_expressions(expressions: list[str]) -> dict[str, str]:
 
     try:
         # Create a batch of assignments
-        lines = []
-        for i, expr in enumerate(non_empty):
-            lines.append(f"__e{i}__ = {expr}")
+        lines = [f"__e{i}__ = {expr}" for i, expr in enumerate(non_empty)]
         batch_source = "\n".join(lines)
 
         # Format all at once
@@ -102,6 +100,7 @@ def batch_format_expressions(expressions: list[str]) -> dict[str, str]:
         # Parse the results - need to handle multiline expressions
         result_map = {}
         formatted_lines = formatted_batch.strip().split("\n")
+        formatted_lines_count = len(formatted_lines)
 
         for i, expr in enumerate(non_empty):
             # Find the formatted expression for this variable
@@ -118,8 +117,8 @@ def batch_format_expressions(expressions: list[str]) -> dict[str, str]:
                 continue
 
             # Find the end line: next line that starts with __e (next assignment)
-            end_idx = len(formatted_lines)
-            for idx in range(start_idx + 1, len(formatted_lines)):
+            end_idx = formatted_lines_count
+            for idx in range(start_idx + 1, formatted_lines_count):
                 line = formatted_lines[idx]
                 if line.startswith("__e") and " = " in line:
                     end_idx = idx
