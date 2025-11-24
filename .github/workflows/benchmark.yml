@@ -33,7 +33,7 @@ jobs:
           path: .benchmarks
           key: benchmark-baseline-3.14-${{ runner.os }}-${{ github.run_number }}
           restore-keys: |
-            benchmark-baseline-3.14-${{ runner.os }}
+            benchmark-baseline-3.14-${{ runner.os }}-
 
       # On master: save baseline results
       - name: Run benchmarks and save new baseline
