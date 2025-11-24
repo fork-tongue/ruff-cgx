@@ -43,7 +43,7 @@ def collect_expressions(node) -> list[str]:
             return
 
         # Collect expressions from attributes
-        if attributes := getattr(n, "attrs"):
+        if attributes := getattr(n, "attrs", None):
             for key, value in attributes.items():
                 if (
                     key.startswith((":", "@", "v-"))
@@ -61,7 +61,7 @@ def collect_expressions(node) -> list[str]:
                         expressions.append(value.strip())
 
         # Recurse into children
-        if children := getattr(n, "children"):
+        if children := getattr(n, "children", None):
             for child in children:
                 _collect_from_node(child)
 
