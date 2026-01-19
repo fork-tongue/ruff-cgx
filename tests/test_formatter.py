@@ -723,6 +723,118 @@ def test_format_multiline_dict_template():
     assert formatted == expected
 
 
+def test_format_comment_as_root_node():
+    """Test formatting cgx files with a multiline comment as a root node."""
+    content = textwrap.dedent(
+        """
+        <!--
+
+        This is a root comment
+        that spans multiple lines
+        to test multiline handling -->
+        <script>
+        from collagraph import Component
+        class Node(Component):
+        	pass
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+
+    expected = textwrap.dedent(
+        """
+        <!--
+
+        This is a root comment
+        that spans multiple lines
+        to test multiline handling -->
+
+        <script>
+        from collagraph import Component
+
+
+        class Node(Component):
+            pass
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected
+
+
+def test_format_comment_as_root_node_with_template():
+    """Test formatting cgx files with a comment and template as root nodes."""
+    content = textwrap.dedent(
+        """
+        <!-- Root comment -->
+        <template>
+          <item />
+        </template>
+
+        <script>
+        from collagraph import Component
+        class Node(Component):
+        	pass
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+
+    expected = textwrap.dedent(
+        """
+        <!-- Root comment -->
+
+        <template>
+          <item />
+        </template>
+
+        <script>
+        from collagraph import Component
+
+
+        class Node(Component):
+            pass
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected
+
+
+def test_format_text_as_root_node():
+    """Test formatting cgx files with text as a root node."""
+    content = textwrap.dedent(
+        """
+        Some root text
+        <script>
+        from collagraph import Component
+        class Node(Component):
+        	pass
+        </script>
+        """
+    ).lstrip()
+
+    formatted = format_cgx_content(content)
+
+    expected = textwrap.dedent(
+        """
+        Some root text
+
+        <script>
+        from collagraph import Component
+
+
+        class Node(Component):
+            pass
+        </script>
+        """
+    ).lstrip()
+
+    assert formatted == expected
+
+
 def test_format_multiline_dict_template_multi_attrs():
     content = textwrap.dedent(
         """

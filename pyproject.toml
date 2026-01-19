@@ -1,6 +1,6 @@
 [project]
 name = "ruff-cgx"
-version = "0.2.1"
+version = "0.2.3"
 description = "Ruff linter and formatter for collagraph single-file components"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,6 +19,7 @@ ruff-cgx = "ruff_cgx.__main__:main"
 [dependency-groups]
 dev = [
     "pytest",
+    "pytest-benchmark",
 ]
 ruff = [
     "ruff"
@@ -45,3 +46,10 @@ unfixable = [
     "F401",  # Unused import
     "F841",  # Unused variable
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"ruff_cgx/__main__.py" = ["T201"]
+"benchmarks/benchmark.py" = ["E501"]
+
+[tool.pytest.ini_options]
+addopts = "--benchmark-columns='mean, stddev, rounds'"

@@ -47,16 +47,21 @@ def _prepare_content_for_linting(
     return virtual_content, parsed, script_content
 
 
-def lint_file(path, fix=False, **_):
+def lint_file(path, fix=False):
     """
-    Lint a CGX file using ruff (CLI version).
+    Lint a CGX file and return structured data.
 
     Args:
         path: Path to the CGX file
         fix: Whether to fix issues (default: False)
 
     Returns:
-        Exit code (0 for success, non-zero for errors)
+        dict with:
+        - path: Path object
+        - was_fixed: bool (True if fixes were applied)
+        - diagnostics: List[Diagnostic] (remaining issues)
+        - diagnostics_before_fix: List[Diagnostic] (issues before fix, if fix=True)
+        - success: bool (True if no errors)
     """
     path = Path(path)
     content = path.read_text(encoding="utf-8")
@@ -64,24 +69,51 @@ def lint_file(path, fix=False, **_):
     # Prepare content for linting
     virtual_content = _prepare_content_for_linting(content)
     if virtual_content is None:
-        return 1
+        return {
+            "path": path,
+            "was_fixed": False,
+            "diagnostics": [],
+            "diagnostics_before_fix": [],
+            "success": False,
+        }
 
     virtual_content, parsed, script_content = virtual_content
 
-    # Run ruff check with full output (for CLI)
-    result, temp_path, fixed_content = run_ruff_check(
-        virtual_content, output_format="full", fix=fix
+    # Parse initial diagnostics
+    diagnostics_before_fix = lint_cgx_content(content)
+
+    # If not fixing, just return the diagnostics
+    if not fix:
+        return {
+            "path": path,
+            "was_fixed": False,
+            "diagnostics": diagnostics_before_fix,
+            "diagnostics_before_fix": diagnostics_before_fix,
+            "success": len(diagnostics_before_fix) == 0,
+        }
+
+    assert fix is True
+    # Run ruff check with fix
+    _, fixed_content = run_ruff_check(virtual_content, fix=fix)
+    assert fixed_content
+
+    # Apply fixes if we got fixed content
+    fixed_file_content = _apply_fixes_to_file(
+        path, content, parsed, script_content, fixed_content
     )
 
-    # Replace temp file path with actual path in output
-    stdout = result.stdout.replace(str(temp_path), str(path)).strip()
-    print(stdout)  # noqa: T201
+    # Re-lint to get remaining diagnostics
+    # Simply filtering the diagnostics from before the fix won't
+    # work, since line numbers / columns might have changed
+    diagnostics = lint_cgx_content(fixed_file_content)
 
-    # If fix was requested and we got fixed content, apply it back to the file
-    if fix and fixed_content:
-        _apply_fixes_to_file(path, content, parsed, script_content, fixed_content)
-
-    return result.returncode
+    return {
+        "path": path,
+        "was_fixed": fixed_file_content != content,
+        "diagnostics": diagnostics,
+        "diagnostics_before_fix": diagnostics_before_fix,
+        "success": len(diagnostics) == 0,
+    }
 
 
 @dataclass
@@ -95,6 +127,7 @@ class Diagnostic:
     message: str
     code: str
     severity: str  # 'error', 'warning', 'info'
+    fixable: bool = False  # Whether this diagnostic can be auto-fixed
     source: str = "ruff"
 
 
@@ -133,7 +166,7 @@ def _run_ruff(python_content: str) -> List[Diagnostic]:
         List of diagnostics
     """
     # Run ruff check with JSON output
-    result, _, _ = run_ruff_check(python_content, output_format="json")
+    result, _ = run_ruff_check(python_content)
     if not result.stdout:
         return []
 
@@ -159,6 +192,9 @@ def _run_ruff(python_content: str) -> List[Diagnostic]:
         elif code.startswith("F"):
             severity = "error"
 
+        # Check if the diagnostic is fixable (has a "fix" field)
+        fixable = diag.get("fix") is not None
+
         diagnostics.append(
             Diagnostic(
                 line=line,
@@ -168,6 +204,7 @@ def _run_ruff(python_content: str) -> List[Diagnostic]:
                 message=diag.get("message", "Unknown error"),
                 code=code,
                 severity=severity,
+                fixable=fixable,
             )
         )
 
@@ -221,7 +258,7 @@ def _apply_fixes_to_file(
     parsed: ParsedCGX,
     script_content: ScriptContent,
     fixed_content: str,
-) -> None:
+) -> str:
     """
     Apply the fixed Python code back to the original CGX file.
 
@@ -264,3 +301,5 @@ def _apply_fixes_to_file(
         new_content += "\n"
 
     path.write_text(new_content, encoding="utf-8")
+
+    return new_content
