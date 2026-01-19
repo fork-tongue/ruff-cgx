@@ -247,7 +247,7 @@ def format_template(template_node) -> tuple[list[str], tuple[int, int]]:
 
     # Comment and TextElement nodes don't have an 'end' attribute
     # For these, we compute the end from the content by counting newlines
-    if isinstance(template_node, (Comment, TextElement)):
+    if not hasattr(template_node, "end"):
         # Count newlines in content to determine end line
         newline_count = template_node.content.count("\n")
         end = start + newline_count + 1
