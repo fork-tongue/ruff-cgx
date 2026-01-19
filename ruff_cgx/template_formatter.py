@@ -242,8 +242,17 @@ def format_template(template_node) -> tuple[list[str], tuple[int, int]]:
 
     Uses batch formatting for all Python expressions to improve performance.
     """
-    # Find beginning and end of script block
-    start, end = template_node.location[0] - 1, template_node.end[0]
+    # Find beginning of the node (0-indexed)
+    start = template_node.location[0] - 1
+
+    # Comment and TextElement nodes don't have an 'end' attribute
+    # For these, we compute the end from the content by counting newlines
+    if isinstance(template_node, (Comment, TextElement)):
+        # Count newlines in content to determine end line
+        newline_count = template_node.content.count("\n")
+        end = start + newline_count + 1
+    else:
+        end = template_node.end[0]
 
     # Collect all expressions and batch format them
     expressions = collect_expressions(template_node)
