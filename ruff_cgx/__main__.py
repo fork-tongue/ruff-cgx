@@ -152,7 +152,7 @@ def main(argv=None):
         description="Lint and format cgx files with ruff",
         epilog="Environment: Set RUFF_COMMAND to use a custom ruff executable.",
     )
-    subcommand = parser.add_subparsers(dest="command")
+    subcommand = parser.add_subparsers(dest="command", required=True)
 
     lint_parser = subcommand.add_parser("check")
     lint_parser.add_argument(
