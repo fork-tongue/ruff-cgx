@@ -183,6 +183,9 @@ def main(argv=None):
             code = run_check_command(args)
         case "format":
             code = run_format_command(args)
+        case _:
+            parser.print_help()
+            exit(1)
 
     if code:
         exit(code)
