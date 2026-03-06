@@ -150,9 +150,9 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(
         description="Lint and format cgx files with ruff",
-        epilog="Environment: Set RUFF_COMMAND to use a custom ruff executable.",
+        epilog="Environment: Set RUFF_COMMAND to use a custom ruff executable."
     )
-    subcommand = parser.add_subparsers(dest="command")
+    subcommand = parser.add_subparsers(dest="command", required=True)
 
     lint_parser = subcommand.add_parser("check")
     lint_parser.add_argument(
@@ -176,6 +176,9 @@ def main(argv=None):
         help="path(s) of files and/or folders to format",
     )
 
+    # Explicit help subcommand (separate from -h/--help)
+    subcommand.add_parser("help", help="Show this help message and exit")
+
     args = parser.parse_args(argv)
 
     match args.command:
@@ -183,13 +186,12 @@ def main(argv=None):
             code = run_check_command(args)
         case "format":
             code = run_format_command(args)
-        case _:
+        case "help":
             parser.print_help()
-            exit(1)
+            exit(0)
 
     if code:
         exit(code)
-
 
 if __name__ == "__main__":
     main()
