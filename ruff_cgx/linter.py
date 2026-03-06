@@ -94,8 +94,11 @@ def lint_file(path, fix=False):
 
     assert fix is True
     # Run ruff check with fix
-    _, fixed_content = run_ruff_check(virtual_content, fix=fix)
-    assert fixed_content
+    result, fixed_content = run_ruff_check(virtual_content, fix=fix)
+    assert fixed_content, (
+        f"ruff check --fix returned no output (exit code {result.returncode}). "
+        f"stderr: {result.stderr}"
+    )
 
     # Apply fixes if we got fixed content
     fixed_file_content = _apply_fixes_to_file(

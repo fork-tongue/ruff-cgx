@@ -247,7 +247,10 @@ def is_isort_configured() -> bool:
     try:
         # Print ruff settings
         ruff_output = subprocess.run(
-            ["ruff", "check", "--show-settings"], capture_output=True, text=True
+            ["ruff", "check", "--show-settings"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
         ).stdout
 
         # Get both the enabled + should_fix sections
@@ -312,6 +315,7 @@ def run_ruff_format(
             input=source,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         # Use the fixed output if available, otherwise use original
         if result.returncode == 0 or result.stdout:
@@ -345,6 +349,7 @@ def run_ruff_format(
         input=source,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
 
     if result.returncode == 0 or not check:
@@ -387,6 +392,7 @@ def run_ruff_check(
         input=source,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=30,
     )
 
