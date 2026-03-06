@@ -176,9 +176,6 @@ def main(argv=None):
         help="path(s) of files and/or folders to format",
     )
 
-    # Explicit help subcommand (separate from -h/--help)
-    subcommand.add_parser("help", help="Show this help message and exit")
-
     args = parser.parse_args(argv)
 
     match args.command:
@@ -186,9 +183,6 @@ def main(argv=None):
             code = run_check_command(args)
         case "format":
             code = run_format_command(args)
-        case "help":
-            parser.print_help()
-            exit(0)
 
     if code:
         exit(code)
