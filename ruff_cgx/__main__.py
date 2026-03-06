@@ -150,7 +150,7 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(
         description="Lint and format cgx files with ruff",
-        epilog="Environment: Set RUFF_COMMAND to use a custom ruff executable."
+        epilog="Environment: Set RUFF_COMMAND to use a custom ruff executable.",
     )
     subcommand = parser.add_subparsers(dest="command", required=True)
 
@@ -186,6 +186,7 @@ def main(argv=None):
 
     if code:
         exit(code)
+
 
 if __name__ == "__main__":
     main()
